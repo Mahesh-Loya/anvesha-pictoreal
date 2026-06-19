@@ -259,7 +259,7 @@ git commit -m "Add global state module with reset"
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `magazine.config.js` exports `magazine` shaped exactly as in PRD §10 (`title`, `fragments: {image, rows, cols}`, `tiers: [{id, name, section, depth, light, palette, map, npc, pages}]`). `validate-config.js` exports `validateConfig(magazine)` returning `{ valid: boolean, totalPages: number, errors: string[] }`. Every later task that reads tiers/pages/NPCs imports `magazine` from this file; nothing else may hardcode tier or page data.
+- Produces: `magazine.config.js` exports `magazine` shaped per PRD §10 plus a `sutradhar` field (`title`, `sutradhar: {closingComplete, closingIncomplete}`, `fragments: {image, rows, cols}`, `tiers: [{id, name, section, depth, light, palette, map, npc, pages}]`). `validate-config.js` exports `validateConfig(magazine)` returning `{ valid: boolean, totalPages: number, errors: string[] }`. Every later task that reads tiers/pages/NPCs/Sutradhar lines imports `magazine` from this file; nothing else may hardcode tier, page, or narration content (Global Constraints).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -323,6 +323,11 @@ Expected: PASS (2 tests).
 ```js
 export const magazine = {
   title: "Anvesha — The Stepwell of Anvesha",
+
+  sutradhar: {
+    closingComplete: "Every fragment surfaced becomes the whole.\nWhat was hidden, you have made visible.",
+    closingIncomplete: "There is more to seek above.",
+  },
 
   fragments: {
     image: "/art/final-artwork.svg",
@@ -2163,7 +2168,7 @@ git commit -m "Add stepwell-stair descent transition with parallax and rumble"
 - Modify: `src/main.js`
 
 **Interfaces:**
-- Consumes: `isJourneyComplete`, `getSurfacedCount`, `getTotalFragments` from `fragments.js`; `playCompletionSwell` from `audio.js`; `openJournal` from `journal.js`; GSAP.
+- Consumes: `isJourneyComplete`, `getSurfacedCount`, `getTotalFragments` from `fragments.js`; `playCompletionSwell` from `audio.js`; `openJournal` from `journal.js`; `magazine.sutradhar` from `magazine.config.js` (Sutradhar's closing lines — not hardcoded, per Global Constraints); GSAP.
 - Produces: `registerEndingScene()` — registers the `"ending"` scene (already targeted by Task 14's stairs-down handler when there is no next tier). `openJournal` gains an options parameter: `openJournal({ animateThread } = {})` — when `animateThread` is true, draws and animates an SVG polyline connecting the centers of all surfaced fragment slots in fragment order. Existing zero-argument calls to `openJournal()` (HUD button, from Task 12) keep working unchanged since the parameter is optional and defaults to `false`.
 
 - [ ] **Step 1: Modify `src/ui/journal.js` to support the animated thread-of-light**
@@ -2269,6 +2274,7 @@ export function isJournalOpen() {
 import { isJourneyComplete, getSurfacedCount, getTotalFragments } from "../systems/fragments.js";
 import { playCompletionSwell } from "../systems/audio.js";
 import { openJournal } from "../ui/journal.js";
+import { magazine } from "../content/magazine.config.js";
 import gsap from "gsap";
 
 export function registerEndingScene() {
@@ -2286,7 +2292,7 @@ export function registerEndingScene() {
         color(252, 222, 90),
       ]);
       add([
-        text("Every fragment surfaced becomes the whole.\nWhat was hidden, you have made visible.", { size: 18, align: "center" }),
+        text(magazine.sutradhar.closingComplete, { size: 18, align: "center" }),
         pos(width() / 2, height() / 2 - 10),
         anchor("center"),
         color(246, 231, 210),
@@ -2307,7 +2313,7 @@ export function registerEndingScene() {
       ]);
       add([
         text(
-          `You have surfaced ${getSurfacedCount()} of ${getTotalFragments()} fragments.\nThere is more to seek above.`,
+          `You have surfaced ${getSurfacedCount()} of ${getTotalFragments()} fragments.\n${magazine.sutradhar.closingIncomplete}`,
           { size: 16, align: "center" }
         ),
         pos(width() / 2, height() / 2 + 10),
