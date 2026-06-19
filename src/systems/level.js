@@ -3,7 +3,7 @@ import { hexToRgb } from "./color.js";
 const TILE_SIZE = 32;
 
 export function buildLevel(tierConfig) {
-  let seekerSpawn = null;
+  let pageCursor = 0;
 
   const level = addLevel(tierConfig.map, {
     tileWidth: TILE_SIZE,
@@ -30,22 +30,38 @@ export function buildLevel(tierConfig) {
         opacity(0.6),
         "stairs-up",
       ],
+      "p": () => {
+        const pageData = tierConfig.pages[pageCursor++];
+        return [
+          circle(8),
+          area(),
+          color(252, 222, 90),
+          "page-marker",
+          { pageData },
+        ];
+      },
+      "h": () => {
+        const pageData = tierConfig.pages[pageCursor++];
+        return [
+          circle(8),
+          area(),
+          color(252, 222, 90),
+          opacity(0),
+          "page-marker",
+          "hidden-marker",
+          { pageData },
+        ];
+      },
     },
   });
 
-  for (let row = 0; row < tierConfig.map.length; row++) {
-    const col = tierConfig.map[row].indexOf("S");
-    if (col !== -1) {
-      seekerSpawn = { x: col * TILE_SIZE + TILE_SIZE / 2, y: row * TILE_SIZE + TILE_SIZE / 2 };
-    }
-  }
-
+  let seekerSpawn = null;
   let npcSpawn = null;
   for (let row = 0; row < tierConfig.map.length; row++) {
-    const col = tierConfig.map[row].indexOf("C");
-    if (col !== -1) {
-      npcSpawn = { x: col * TILE_SIZE + TILE_SIZE / 2, y: row * TILE_SIZE + TILE_SIZE / 2 };
-    }
+    const sCol = tierConfig.map[row].indexOf("S");
+    if (sCol !== -1) seekerSpawn = { x: sCol * TILE_SIZE + TILE_SIZE / 2, y: row * TILE_SIZE + TILE_SIZE / 2 };
+    const cCol = tierConfig.map[row].indexOf("C");
+    if (cCol !== -1) npcSpawn = { x: cCol * TILE_SIZE + TILE_SIZE / 2, y: row * TILE_SIZE + TILE_SIZE / 2 };
   }
 
   return { level, seekerSpawn, npcSpawn };
