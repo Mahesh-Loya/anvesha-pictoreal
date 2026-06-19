@@ -2,6 +2,8 @@ import { magazine } from "../content/magazine.config.js";
 import { state } from "../state.js";
 import { buildLevel } from "../systems/level.js";
 import { spawnSeeker } from "../entities/seeker.js";
+import { spawnNpc } from "../entities/npc.js";
+import { openDialogue, closeDialogue, isDialogueOpen } from "../ui/dialogue.js";
 import { hexToRgb } from "../systems/color.js";
 
 export function registerTierScene() {
@@ -18,11 +20,27 @@ export function registerTierScene() {
       color(...hexToRgb(tierConfig.palette.bg)),
     ]);
 
-    const { seekerSpawn } = buildLevel(tierConfig);
+    const { seekerSpawn, npcSpawn } = buildLevel(tierConfig);
     if (!seekerSpawn) {
       throw new Error(`Tier "${tierId}" map has no "S" Seeker spawn tile`);
     }
     const seeker = spawnSeeker(seekerSpawn.x, seekerSpawn.y);
+
+    const npc = npcSpawn ? spawnNpc(npcSpawn.x, npcSpawn.y) : null;
+
+    onKeyPress("e", () => {
+      if (isDialogueOpen()) {
+        closeDialogue();
+        return;
+      }
+      if (npc && npc.isSeekerInRange()) {
+        openDialogue(tierConfig.npc.lines);
+      }
+    });
+
+    onKeyPress("escape", () => {
+      if (isDialogueOpen()) closeDialogue();
+    });
 
     seeker.onUpdate(() => {
       setCamPos(seeker.pos);

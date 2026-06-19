@@ -40,5 +40,13 @@ export function buildLevel(tierConfig) {
     }
   }
 
-  return { level, seekerSpawn };
+  let npcSpawn = null;
+  for (let row = 0; row < tierConfig.map.length; row++) {
+    const col = tierConfig.map[row].indexOf("C");
+    if (col !== -1) {
+      npcSpawn = { x: col * TILE_SIZE + TILE_SIZE / 2, y: row * TILE_SIZE + TILE_SIZE / 2 };
+    }
+  }
+
+  return { level, seekerSpawn, npcSpawn };
 }

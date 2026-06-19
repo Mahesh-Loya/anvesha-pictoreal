@@ -1,1 +1,44 @@
 /* populated starting Task 8 */
+
+.folk-border {
+  border-style: solid;
+  border-width: 12px;
+  border-image-slice: 12;
+  border-image-repeat: round;
+  border-image-source: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><rect width='24' height='24' fill='none'/><circle cx='12' cy='6' r='3' fill='%23C9A24B'/><circle cx='6' cy='18' r='3' fill='%23C9A24B'/><circle cx='18' cy='18' r='3' fill='%23C9A24B'/></svg>");
+}
+
+#dialogue-root {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: none;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+#dialogue-root.visible {
+  display: flex;
+}
+
+.dialogue-box {
+  background: var(--overlay-dark);
+  border-radius: 8px;
+  padding: 16px 24px;
+  max-width: 560px;
+  color: var(--archival-ivory);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  text-align: center;
+}
+
+.dialogue-hint {
+  display: block;
+  margin-top: 8px;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--linework-gold);
+}
