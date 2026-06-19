@@ -3,7 +3,7 @@ import { state } from "../state.js";
 import { buildLevel } from "../systems/level.js";
 import { spawnSeeker } from "../entities/seeker.js";
 import { spawnNpc } from "../entities/npc.js";
-import { openDialogue, closeDialogue, isDialogueOpen } from "../ui/dialogue.js";
+import { openDialogue, advanceDialogue, closeDialogue, isDialogueOpen } from "../ui/dialogue.js";
 import { hexToRgb } from "../systems/color.js";
 
 export function registerTierScene() {
@@ -30,7 +30,7 @@ export function registerTierScene() {
 
     onKeyPress("e", () => {
       if (isDialogueOpen()) {
-        closeDialogue();
+        advanceDialogue();
         return;
       }
       if (npc && npc.isSeekerInRange()) {
