@@ -1,3 +1,5 @@
+import { hexToRgb } from "./color.js";
+
 const TILE_SIZE = 32;
 
 export function buildLevel(tierConfig) {
@@ -11,20 +13,20 @@ export function buildLevel(tierConfig) {
         rect(TILE_SIZE, TILE_SIZE),
         area(),
         body({ isStatic: true }),
-        color(...hexToRgbTuple(tierConfig.palette.wall)),
+        color(...hexToRgb(tierConfig.palette.wall)),
         "wall",
       ],
       ">": () => [
         rect(TILE_SIZE, TILE_SIZE),
         area(),
-        color(...hexToRgbTuple(tierConfig.palette.wall)),
+        color(...hexToRgb(tierConfig.palette.wall)),
         opacity(0.6),
         "stairs-down",
       ],
       "<": () => [
         rect(TILE_SIZE, TILE_SIZE),
         area(),
-        color(...hexToRgbTuple(tierConfig.palette.wall)),
+        color(...hexToRgb(tierConfig.palette.wall)),
         opacity(0.6),
         "stairs-up",
       ],
@@ -39,12 +41,4 @@ export function buildLevel(tierConfig) {
   }
 
   return { level, seekerSpawn };
-}
-
-function hexToRgbTuple(hex) {
-  const clean = hex.replace("#", "");
-  const r = parseInt(clean.substring(0, 2), 16);
-  const g = parseInt(clean.substring(2, 4), 16);
-  const b = parseInt(clean.substring(4, 6), 16);
-  return [r, g, b];
 }

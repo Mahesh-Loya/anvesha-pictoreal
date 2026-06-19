@@ -2,6 +2,7 @@ import { magazine } from "../content/magazine.config.js";
 import { state } from "../state.js";
 import { buildLevel } from "../systems/level.js";
 import { spawnSeeker } from "../entities/seeker.js";
+import { hexToRgb } from "../systems/color.js";
 
 export function registerTierScene() {
   scene("tier", (tierId) => {
@@ -14,10 +15,13 @@ export function registerTierScene() {
     add([
       rect(width() * 4, height() * 4),
       pos(-width(), -height()),
-      color(...hexBg(tierConfig.palette.bg)),
+      color(...hexToRgb(tierConfig.palette.bg)),
     ]);
 
     const { seekerSpawn } = buildLevel(tierConfig);
+    if (!seekerSpawn) {
+      throw new Error(`Tier "${tierId}" map has no "S" Seeker spawn tile`);
+    }
     const seeker = spawnSeeker(seekerSpawn.x, seekerSpawn.y);
 
     seeker.onUpdate(() => {
@@ -45,9 +49,4 @@ function getNextTierId(currentId) {
 function getPrevTierId(currentId) {
   const idx = magazine.tiers.findIndex((t) => t.id === currentId);
   return magazine.tiers[idx - 1]?.id ?? null;
-}
-
-function hexBg(hex) {
-  const clean = hex.replace("#", "");
-  return [parseInt(clean.substring(0, 2), 16), parseInt(clean.substring(2, 4), 16), parseInt(clean.substring(4, 6), 16)];
 }
