@@ -1,4 +1,5 @@
 import kaplay from "kaplay";
+import { registerTitleScene } from "./scenes/title.js";
 
 const k = kaplay({
   width: 960,
@@ -10,15 +11,8 @@ const k = kaplay({
 
 setGravity(0);
 
-scene("boot", () => {
-  add([
-    text("Anvesha", { size: 48 }),
-    pos(width() / 2, height() / 2),
-    anchor("center"),
-    color(252, 222, 90),
-  ]);
-});
+registerTitleScene();
 
-go("boot");
+go("title");
 
 export default k;
