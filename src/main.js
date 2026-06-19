@@ -1,5 +1,6 @@
 import kaplay from "kaplay";
 import { registerTitleScene } from "./scenes/title.js";
+import { registerTierScene } from "./scenes/tier.js";
 
 const k = kaplay({
   width: 960,
@@ -12,6 +13,7 @@ const k = kaplay({
 setGravity(0);
 
 registerTitleScene();
+registerTierScene();
 
 go("title");
 
