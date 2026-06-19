@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="640" viewBox="0 0 480 640"><rect x="0" y="0" width="96" height="640" fill="hsl(0, 55%, 45%)" stroke="#F6E7D2" stroke-width="2" />
+<rect x="96" y="0" width="96" height="640" fill="hsl(72, 55%, 45%)" stroke="#F6E7D2" stroke-width="2" />
+<rect x="192" y="0" width="96" height="640" fill="hsl(144, 55%, 45%)" stroke="#F6E7D2" stroke-width="2" />
+<rect x="288" y="0" width="96" height="640" fill="hsl(216, 55%, 45%)" stroke="#F6E7D2" stroke-width="2" />
+<rect x="384" y="0" width="96" height="640" fill="hsl(288, 55%, 45%)" stroke="#F6E7D2" stroke-width="2" /></svg>
