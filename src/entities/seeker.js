@@ -1,6 +1,10 @@
+import { playFootstep } from "../systems/audio.js";
+
 const SPEED = 200;
 
 export function spawnSeeker(x, y) {
+  let footstepTimer = 0;
+
   const seeker = add([
     rect(20, 28),
     pos(x, y),
@@ -22,6 +26,11 @@ export function spawnSeeker(x, y) {
     if (dx !== 0 || dy !== 0) {
       const len = Math.sqrt(dx * dx + dy * dy);
       seeker.move((dx / len) * SPEED, (dy / len) * SPEED);
+      footstepTimer -= dt();
+      if (footstepTimer <= 0) {
+        playFootstep();
+        footstepTimer = 0.3;
+      }
     }
   });
 

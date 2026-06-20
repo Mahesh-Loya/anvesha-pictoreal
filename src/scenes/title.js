@@ -1,3 +1,5 @@
+import { playPageOpen } from "../systems/audio.js";
+
 export function registerTitleScene() {
   scene("title", () => {
     add([
@@ -33,6 +35,7 @@ export function registerTitleScene() {
     });
 
     function begin() {
+      playPageOpen();
       go("tier", "surface");
     }
 
