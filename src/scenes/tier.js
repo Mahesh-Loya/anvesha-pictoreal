@@ -4,6 +4,7 @@ import { buildLevel } from "../systems/level.js";
 import { spawnSeeker } from "../entities/seeker.js";
 import { spawnNpc } from "../entities/npc.js";
 import { openDialogue, advanceDialogue, closeDialogue, isDialogueOpen } from "../ui/dialogue.js";
+import { openReader, closeReader, isReaderOpen } from "../ui/reader.js";
 import { hexToRgb } from "../systems/color.js";
 import { setupInteraction } from "../systems/interaction.js";
 
@@ -44,7 +45,15 @@ export function registerTierScene() {
     });
 
     setupInteraction(seeker, (pageData) => {
-      console.log("Opening page:", pageData.title);
+      openReader(pageData, () => {});
+    });
+
+    onKeyPress("escape", () => {
+      if (isReaderOpen()) {
+        closeReader();
+        return;
+      }
+      if (isDialogueOpen()) closeDialogue();
     });
 
     seeker.onUpdate(() => {
