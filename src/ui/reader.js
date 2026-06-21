@@ -10,6 +10,9 @@ export function isReaderOpen() {
 }
 
 export function openReader(pageData, onFirstRead) {
+  // Guard against re-opening while already open (e.g. pressing E on a marker
+  // mid-read), which would reset zoom and re-render the same page.
+  if (isReaderOpen()) return;
   currentPageData = pageData;
   zoom = 1;
   playPageOpen();
