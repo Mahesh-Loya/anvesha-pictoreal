@@ -66,4 +66,8 @@ export function closeReader() {
   root.classList.remove("visible");
   root.innerHTML = "";
   currentPageData = null;
+  // Clicking the close button moved DOM focus off the Kaplay canvas, which
+  // would leave keyboard input (movement, E) dead until the player clicks
+  // back. Restore focus so play resumes immediately.
+  document.querySelector("canvas")?.focus();
 }
