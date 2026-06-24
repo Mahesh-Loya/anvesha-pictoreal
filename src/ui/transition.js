@@ -18,6 +18,11 @@ export function playDescentTransition(onMidpoint) {
     },
   });
 
+  // INVARIANT: the bare .call() must stay sequential (no position arg) and
+  // sit AFTER the step tweens but BEFORE the fade-out — that lands it at full
+  // cover (opacity 1), so onMidpoint()'s scene swap happens while the screen
+  // is opaque and the player never sees a flash of the next tier. Don't add a
+  // position argument to .call() or reorder it past the fade-out.
   tl.to(root, { opacity: 1, duration: 0.3 })
     .to(root.querySelector(".step-1"), { y: -40, duration: 0.5 }, "<")
     .to(root.querySelector(".step-2"), { y: -60, duration: 0.6 }, "<0.05")
