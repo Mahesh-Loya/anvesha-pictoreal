@@ -245,3 +245,36 @@
   background: var(--diya-gold);
   box-shadow: 0 0 12px var(--diya-gold);
 }
+
+#transition-root {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  opacity: 0;
+  background: var(--ink);
+  overflow: hidden;
+  display: none;
+}
+
+#transition-root.visible {
+  display: block;
+}
+
+.transition-steps {
+  position: absolute;
+  inset: 0;
+}
+
+.step {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 34%;
+  background: var(--linework-gold);
+  opacity: 0.5;
+}
+
+.step-1 { top: 0; }
+.step-2 { top: 33%; }
+.step-3 { top: 66%; }

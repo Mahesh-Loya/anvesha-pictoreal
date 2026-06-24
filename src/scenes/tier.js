@@ -12,6 +12,8 @@ import { surfaceFragment } from "../systems/fragments.js";
 import { playFragmentChime } from "../systems/audio.js";
 import { mountHud, updateHudCount, getHudJournalButtonRect } from "../ui/hud.js";
 import { setupLantern } from "../systems/lantern.js";
+import { playDescentTransition } from "../ui/transition.js";
+import { playDescentRumble } from "../systems/audio.js";
 
 export function registerTierScene() {
   scene("tier", (tierId) => {
@@ -20,6 +22,7 @@ export function registerTierScene() {
       throw new Error(`Unknown tier id: ${tierId}`);
     }
     state.currentTier = tierId;
+    let transitioning = false;
 
     add([
       rect(width() * 4, height() * 4),
@@ -75,9 +78,14 @@ export function registerTierScene() {
     });
 
     seeker.onCollide("stairs-down", () => {
-      const nextTier = getNextTierId(tierId);
-      if (nextTier) go("tier", nextTier);
-      else go("ending");
+      if (transitioning) return;
+      transitioning = true;
+      playDescentRumble();
+      playDescentTransition(() => {
+        const nextTier = getNextTierId(tierId);
+        if (nextTier) go("tier", nextTier);
+        else go("ending");
+      });
     });
 
     seeker.onCollide("stairs-up", () => {
