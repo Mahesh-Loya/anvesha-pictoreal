@@ -6,6 +6,11 @@ import gsap from "gsap";
 
 export function registerEndingScene() {
   scene("ending", () => {
+    // The lantern overlay is left display:block by a dim final tier and isn't
+    // a tier scene here, so hide it explicitly or it darkens the ending.
+    const lantern = document.getElementById("lantern-overlay");
+    if (lantern) lantern.style.display = "none";
+
     add([rect(width(), height()), pos(0, 0), color(20, 18, 30)]);
 
     if (isJourneyComplete()) {

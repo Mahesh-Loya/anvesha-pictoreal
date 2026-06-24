@@ -45,7 +45,9 @@ function drawThreadOfLight(root, allFragmentIds) {
   line.setAttribute("points", points.join(" "));
   line.setAttribute("fill", "none");
   line.setAttribute("stroke", "var(--diya-gold)");
-  line.setAttribute("stroke-width", "0.006");
+  // vector-effect makes stroke-width a SCREEN-pixel value (independent of the
+  // 0..1 viewBox), so use a px width here, not a tiny user-unit fraction.
+  line.setAttribute("stroke-width", "3");
   line.setAttribute("vector-effect", "non-scaling-stroke");
   svg.appendChild(line);
 
