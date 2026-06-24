@@ -1,3 +1,4 @@
+import gsap from "gsap";
 import { magazine } from "../content/magazine.config.js";
 import { state } from "../state.js";
 import { buildLevel } from "../systems/level.js";
@@ -7,6 +8,9 @@ import { openDialogue, advanceDialogue, closeDialogue, isDialogueOpen } from "..
 import { openReader, closeReader, isReaderOpen } from "../ui/reader.js";
 import { hexToRgb } from "../systems/color.js";
 import { setupInteraction } from "../systems/interaction.js";
+import { surfaceFragment } from "../systems/fragments.js";
+import { playFragmentChime } from "../systems/audio.js";
+import { mountHud, updateHudCount, getHudJournalButtonRect } from "../ui/hud.js";
 
 export function registerTierScene() {
   scene("tier", (tierId) => {
@@ -30,6 +34,8 @@ export function registerTierScene() {
 
     const npc = npcSpawn ? spawnNpc(npcSpawn.x, npcSpawn.y) : null;
 
+    mountHud();
+
     onKeyPress("e", () => {
       if (isDialogueOpen()) {
         advanceDialogue();
@@ -45,7 +51,12 @@ export function registerTierScene() {
     });
 
     setupInteraction(seeker, (pageData) => {
-      openReader(pageData, () => {});
+      openReader(pageData, () => {
+        surfaceFragment(pageData.fragmentId);
+        playFragmentChime();
+        flyFragmentToJournal();
+        updateHudCount();
+      });
     });
 
     onKeyPress("escape", () => {
@@ -81,4 +92,25 @@ function getNextTierId(currentId) {
 function getPrevTierId(currentId) {
   const idx = magazine.tiers.findIndex((t) => t.id === currentId);
   return magazine.tiers[idx - 1]?.id ?? null;
+}
+
+function flyFragmentToJournal() {
+  const flightRoot = document.getElementById("fragment-flight-root");
+  const start = document.querySelector(".reader-card")?.getBoundingClientRect();
+  const end = getHudJournalButtonRect();
+  if (!start) return;
+
+  const dot = document.createElement("div");
+  dot.className = "flying-fragment";
+  dot.style.left = `${start.left + start.width / 2}px`;
+  dot.style.top = `${start.top + start.height / 2}px`;
+  flightRoot.appendChild(dot);
+
+  gsap.to(dot, {
+    left: end.left + end.width / 2,
+    top: end.top + end.height / 2,
+    duration: 0.9,
+    ease: "power2.inOut",
+    onComplete: () => dot.remove(),
+  });
 }

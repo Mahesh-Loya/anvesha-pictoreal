@@ -128,3 +128,107 @@
   cursor: pointer;
   z-index: 5;
 }
+
+#hud-root {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.hud-counter {
+  pointer-events: auto;
+  background: var(--overlay-dark);
+  border: 2px solid var(--linework-gold);
+  color: var(--archival-ivory);
+  font-family: Georgia, serif;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+.hud-buttons {
+  pointer-events: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.hud-buttons button {
+  background: var(--overlay-dark);
+  border: 2px solid var(--linework-gold);
+  color: var(--archival-ivory);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+#journal-root {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-dark);
+  z-index: 25;
+}
+
+#journal-root.visible {
+  display: flex;
+}
+
+.journal-card {
+  background: var(--archival-ivory);
+  border-radius: 4px;
+  padding: 24px;
+  display: grid;
+  gap: 4px;
+  position: relative;
+}
+
+.journal-slot {
+  width: 64px;
+  height: 64px;
+  background: var(--ink);
+  border: 1px solid var(--linework-gold);
+  opacity: 0.25;
+}
+
+.journal-slot.filled {
+  opacity: 1;
+}
+
+.journal-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--ink);
+  color: var(--archival-ivory);
+  cursor: pointer;
+}
+
+#fragment-flight-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 28;
+}
+
+.flying-fragment {
+  position: fixed;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--diya-gold);
+  box-shadow: 0 0 12px var(--diya-gold);
+}
