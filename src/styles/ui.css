@@ -221,7 +221,9 @@
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 28;
+  /* Above the reader (z-index 30) so the discovery dot is visible flying
+     from the just-opened page to the journal button, not occluded by it. */
+  z-index: 35;
 }
 
 .flying-fragment {
