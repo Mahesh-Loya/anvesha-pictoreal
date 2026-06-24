@@ -44,7 +44,9 @@ function drawThreadOfLight(root, allFragmentIds) {
   const line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
   line.setAttribute("points", points.join(" "));
   line.setAttribute("fill", "none");
-  line.setAttribute("stroke", "var(--diya-gold)");
+  // Literal hex (mirrors --diya-gold): CSS var() is not reliably resolved in
+  // an SVG presentation attribute across Firefox/Safari.
+  line.setAttribute("stroke", "#FCDE5A");
   // vector-effect makes stroke-width a SCREEN-pixel value (independent of the
   // 0..1 viewBox), so use a px width here, not a tiny user-unit fraction.
   line.setAttribute("stroke-width", "3");
