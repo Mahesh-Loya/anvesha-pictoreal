@@ -11,6 +11,7 @@ import { setupInteraction } from "../systems/interaction.js";
 import { surfaceFragment } from "../systems/fragments.js";
 import { playFragmentChime } from "../systems/audio.js";
 import { mountHud, updateHudCount, getHudJournalButtonRect } from "../ui/hud.js";
+import { setupLantern } from "../systems/lantern.js";
 
 export function registerTierScene() {
   scene("tier", (tierId) => {
@@ -33,6 +34,8 @@ export function registerTierScene() {
     const seeker = spawnSeeker(seekerSpawn.x, seekerSpawn.y);
 
     const npc = npcSpawn ? spawnNpc(npcSpawn.x, npcSpawn.y) : null;
+
+    setupLantern(seeker, tierConfig);
 
     mountHud();
 

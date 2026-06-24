@@ -1,5 +1,13 @@
 /* populated starting Task 8 */
 
+#lantern-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  display: none;
+}
+
 .folk-border {
   border-style: solid;
   border-width: 12px;
