@@ -3,7 +3,10 @@
 #lantern-overlay {
   position: fixed;
   inset: 0;
-  z-index: 15;
+  /* Below the HUD (z-index 10) so the lantern darkens the game world but
+     leaves the always-on counter/buttons fully legible; still above the
+     Kaplay canvas, which has no explicit z-index. */
+  z-index: 5;
   pointer-events: none;
   display: none;
 }

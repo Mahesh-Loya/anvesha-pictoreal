@@ -1,5 +1,4 @@
 const LANTERN_WORLD_RADIUS = 140;
-let nearHidden = false;
 
 export function setupLantern(seeker, tierConfig) {
   const overlay = document.getElementById("lantern-overlay");
@@ -12,6 +11,7 @@ export function setupLantern(seeker, tierConfig) {
 
   overlay.style.display = "block";
   const baseRadius = 90 + tierConfig.light * 60;
+  let nearHidden = false;
 
   seeker.onUpdate(() => {
     nearHidden = false;
