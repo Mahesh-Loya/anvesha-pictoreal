@@ -1,4 +1,5 @@
 import { playFootstep } from "../systems/audio.js";
+import { isAnyOverlayOpen } from "../ui/overlays.js";
 
 const SPEED = 200;
 
@@ -16,6 +17,10 @@ export function spawnSeeker(x, y) {
   ]);
 
   seeker.onUpdate(() => {
+    // Freeze movement while a modal overlay (reader/journal/dialogue) is open,
+    // so the Seeker can't wander or hit stairs and transition under the overlay.
+    if (isAnyOverlayOpen()) return;
+
     let dx = 0;
     let dy = 0;
     if (isKeyDown("left") || isKeyDown("a")) dx -= 1;

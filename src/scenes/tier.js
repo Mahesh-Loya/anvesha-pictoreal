@@ -11,6 +11,7 @@ import { setupInteraction } from "../systems/interaction.js";
 import { surfaceFragment } from "../systems/fragments.js";
 import { playFragmentChime } from "../systems/audio.js";
 import { mountHud, updateHudCount, getHudJournalButtonRect } from "../ui/hud.js";
+import { isJournalOpen, closeJournal } from "../ui/journal.js";
 import { setupLantern } from "../systems/lantern.js";
 import { playDescentTransition } from "../ui/transition.js";
 import { playDescentRumble } from "../systems/audio.js";
@@ -52,10 +53,6 @@ export function registerTierScene() {
       }
     });
 
-    onKeyPress("escape", () => {
-      if (isDialogueOpen()) closeDialogue();
-    });
-
     setupInteraction(seeker, (pageData) => {
       openReader(pageData, () => {
         surfaceFragment(pageData.fragmentId);
@@ -65,9 +62,14 @@ export function registerTierScene() {
       });
     });
 
+    // One Escape handler closes whichever overlay is on top.
     onKeyPress("escape", () => {
       if (isReaderOpen()) {
         closeReader();
+        return;
+      }
+      if (isJournalOpen()) {
+        closeJournal();
         return;
       }
       if (isDialogueOpen()) closeDialogue();
