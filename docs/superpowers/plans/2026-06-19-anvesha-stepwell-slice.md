@@ -380,7 +380,7 @@ export const magazine = {
       palette: { wall: "#D97A2B", bg: "#241A2E" },
       map: [
         "########################",
-        "#<....p.......p........#",
+        "#<S...p.......p........#",
         "#......................#",
         "#...C.......h..........#",
         "#.....................>#",
@@ -878,7 +878,7 @@ export function registerTierScene() {
     const seeker = spawnSeeker(seekerSpawn.x, seekerSpawn.y);
 
     seeker.onUpdate(() => {
-      camPos(seeker.pos);
+      setCamPos(seeker.pos);
     });
 
     seeker.onCollide("stairs-down", () => {
@@ -1023,14 +1023,28 @@ let lineIndex = 0;
 let currentLines = [];
 
 export function openDialogue(lines) {
-  const root = document.getElementById("dialogue-root");
-  if (root.classList.contains("visible") && currentLines === lines) {
-    lineIndex = (lineIndex + 1) % currentLines.length;
-  } else {
-    currentLines = lines;
-    lineIndex = 0;
+  currentLines = lines;
+  lineIndex = 0;
+  render();
+}
+
+// Advance to the next line; closes the box once the last line is dismissed.
+// Returns true if a new line was shown, false if the dialogue finished.
+export function advanceDialogue() {
+  if (lineIndex < currentLines.length - 1) {
+    lineIndex++;
+    render();
+    return true;
   }
-  root.innerHTML = `<div class="dialogue-box folk-border"><p>${currentLines[lineIndex]}</p><span class="dialogue-hint">Press E to continue</span></div>`;
+  closeDialogue();
+  return false;
+}
+
+function render() {
+  const root = document.getElementById("dialogue-root");
+  const isLast = lineIndex >= currentLines.length - 1;
+  const hint = isLast ? "Press E to close" : "Press E to continue";
+  root.innerHTML = `<div class="dialogue-box folk-border"><p>${currentLines[lineIndex]}</p><span class="dialogue-hint">${hint}</span></div>`;
   root.classList.add("visible");
 }
 
@@ -1102,7 +1116,7 @@ Add these imports at the top of `tier.js`, alongside the existing ones:
 
 ```js
 import { spawnNpc } from "../entities/npc.js";
-import { openDialogue, closeDialogue, isDialogueOpen } from "../ui/dialogue.js";
+import { openDialogue, advanceDialogue, closeDialogue, isDialogueOpen } from "../ui/dialogue.js";
 ```
 
 Change `const { seekerSpawn } = buildLevel(tierConfig);` (from Task 7) to:
@@ -1111,14 +1125,14 @@ Change `const { seekerSpawn } = buildLevel(tierConfig);` (from Task 7) to:
     const { seekerSpawn, npcSpawn } = buildLevel(tierConfig);
 ```
 
-Then, immediately after `const seeker = spawnSeeker(seekerSpawn.x, seekerSpawn.y);`, add:
+Then, immediately after `const seeker = spawnSeeker(seekerSpawn.x, seekerSpawn.y);`, add (pressing `E` while dialogue is open advances to the next line and closes after the last):
 
 ```js
     const npc = npcSpawn ? spawnNpc(npcSpawn.x, npcSpawn.y) : null;
 
     onKeyPress("e", () => {
       if (isDialogueOpen()) {
-        closeDialogue();
+        advanceDialogue();
         return;
       }
       if (npc && npc.isSeekerInRange()) {
@@ -1157,14 +1171,7 @@ git commit -m "Add NPC entity with idle bob/facing and dialogue UI with folk-art
 
 - [ ] **Step 1: Extend `src/systems/level.js`'s `buildLevel` to spawn page markers**
 
-Add a counter and two new tile handlers inside the `tiles` object passed to `addLevel` (alongside `"#"`, `">"`, `"<"`):
-
-```js
-let pageCursor = 0;
-const litPages = tierConfig.pages.filter((p) => true);
-```
-
-Replace the whole function body of `buildLevel` with this version (it keeps every line from Task 7/8 and adds marker spawning):
+Replace the whole function body of `buildLevel` with this version (it keeps every line from Task 7/8 — including the `import { hexToRgb } from "./color.js";` at the top of the file — and adds marker spawning):
 
 ```js
 export function buildLevel(tierConfig) {
@@ -1178,20 +1185,20 @@ export function buildLevel(tierConfig) {
         rect(TILE_SIZE, TILE_SIZE),
         area(),
         body({ isStatic: true }),
-        color(...hexToRgbTuple(tierConfig.palette.wall)),
+        color(...hexToRgb(tierConfig.palette.wall)),
         "wall",
       ],
       ">": () => [
         rect(TILE_SIZE, TILE_SIZE),
         area(),
-        color(...hexToRgbTuple(tierConfig.palette.wall)),
+        color(...hexToRgb(tierConfig.palette.wall)),
         opacity(0.6),
         "stairs-down",
       ],
       "<": () => [
         rect(TILE_SIZE, TILE_SIZE),
         area(),
-        color(...hexToRgbTuple(tierConfig.palette.wall)),
+        color(...hexToRgb(tierConfig.palette.wall)),
         opacity(0.6),
         "stairs-up",
       ],
@@ -1238,13 +1245,15 @@ Note: page markers are matched to `tierConfig.pages` strictly in the order they 
 ```js
       map: [
         "########################",
-        "#<....p.......p........#",
+        "#<S...p.......p........#",
         "#......................#",
         "#...C.......h........p.#",
         "#.....................>#",
         "########################",
       ],
 ```
+
+(The `S` next to `<` was already added in Task 7 to fix a missing-spawn crash when transitioning into this tier — this step only adds the 4th page marker, `p`, for `p05`.)
 
 - [ ] **Step 2: Write `src/systems/interaction.js`**
 
@@ -1253,7 +1262,9 @@ const INTERACT_RANGE = 40;
 
 export function setupInteraction(seeker, onOpenPage) {
   onKeyPress("e", () => {
-    const markers = get("page-marker");
+    // addLevel() spawns tiles as descendants of an intermediate level
+    // container, not direct children of root, so get() must be recursive.
+    const markers = get("page-marker", { recursive: true });
     for (const marker of markers) {
       if (marker.is("hidden-marker") && marker.opacity < 0.5) continue;
       if (seeker.pos.dist(marker.pos) <= INTERACT_RANGE) {
@@ -1543,6 +1554,9 @@ export function isReaderOpen() {
 }
 
 export function openReader(pageData, onFirstRead) {
+  // Guard against re-opening while already open (e.g. pressing E on a marker
+  // mid-read), which would reset zoom and re-render the same page.
+  if (isReaderOpen()) return;
   currentPageData = pageData;
   zoom = 1;
   playPageOpen();
@@ -1599,6 +1613,10 @@ export function closeReader() {
   root.classList.remove("visible");
   root.innerHTML = "";
   currentPageData = null;
+  // Clicking the close button moved DOM focus off the Kaplay canvas, which
+  // would leave keyboard input (movement, E) dead until the player clicks
+  // back. Restore focus so play resumes immediately.
+  document.querySelector("canvas")?.focus();
 }
 ```
 
@@ -1759,7 +1777,9 @@ git commit -m "Add page reader UI with archival framing, zoom, and corner-peel r
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 28;
+  /* Above the reader (z-index 30) so the discovery dot is visible flying
+     from the just-opened page to the journal button, not occluded by it. */
+  z-index: 35;
 }
 
 .flying-fragment {
@@ -1837,6 +1857,9 @@ export function closeJournal() {
   const root = document.getElementById("journal-root");
   root.classList.remove("visible");
   root.innerHTML = "";
+  // Restore canvas focus so keyboard input resumes after closing (a DOM
+  // button click moved focus off the Kaplay canvas).
+  document.querySelector("canvas")?.focus();
 }
 
 export function isJournalOpen() {
@@ -1951,7 +1974,10 @@ git commit -m "Wire fragment surfacing into HUD, journal grid, and fragment-flig
 #lantern-overlay {
   position: fixed;
   inset: 0;
-  z-index: 15;
+  /* Below the HUD (z-index 10) so the lantern darkens the game world but
+     leaves the always-on counter/buttons fully legible; still above the
+     Kaplay canvas, which has no explicit z-index. */
+  z-index: 5;
   pointer-events: none;
   display: none;
 }
@@ -1961,7 +1987,6 @@ git commit -m "Wire fragment surfacing into HUD, journal grid, and fragment-flig
 
 ```js
 const LANTERN_WORLD_RADIUS = 140;
-let nearHidden = false;
 
 export function setupLantern(seeker, tierConfig) {
   const overlay = document.getElementById("lantern-overlay");
@@ -1974,10 +1999,12 @@ export function setupLantern(seeker, tierConfig) {
 
   overlay.style.display = "block";
   const baseRadius = 90 + tierConfig.light * 60;
+  let nearHidden = false;
 
   seeker.onUpdate(() => {
     nearHidden = false;
-    for (const marker of get("hidden-marker")) {
+    // Recursive: addLevel() nests tiles under a level container, not root.
+    for (const marker of get("hidden-marker", { recursive: true })) {
       const dist = seeker.pos.dist(marker.pos);
       if (dist < LANTERN_WORLD_RADIUS) {
         marker.opacity = Math.max(0, 1 - dist / LANTERN_WORLD_RADIUS);
@@ -2097,6 +2124,11 @@ export function playDescentTransition(onMidpoint) {
     },
   });
 
+  // INVARIANT: the bare .call() must stay sequential (no position arg) and
+  // sit AFTER the step tweens but BEFORE the fade-out — that lands it at full
+  // cover (opacity 1), so onMidpoint()'s scene swap happens while the screen
+  // is opaque and the player never sees a flash of the next tier. Don't add a
+  // position argument to .call() or reorder it past the fade-out.
   tl.to(root, { opacity: 1, duration: 0.3 })
     .to(root.querySelector(".step-1"), { y: -40, duration: 0.5 }, "<")
     .to(root.querySelector(".step-2"), { y: -60, duration: 0.6 }, "<0.05")
@@ -2222,8 +2254,12 @@ function drawThreadOfLight(root, allFragmentIds) {
   const line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
   line.setAttribute("points", points.join(" "));
   line.setAttribute("fill", "none");
-  line.setAttribute("stroke", "var(--diya-gold)");
-  line.setAttribute("stroke-width", "0.006");
+  // Literal hex (mirrors --diya-gold): CSS var() is not reliably resolved in
+  // an SVG presentation attribute across Firefox/Safari.
+  line.setAttribute("stroke", "#FCDE5A");
+  // vector-effect makes stroke-width a SCREEN-pixel value (independent of the
+  // 0..1 viewBox), so use a px width here, not a tiny user-unit fraction.
+  line.setAttribute("stroke-width", "3");
   line.setAttribute("vector-effect", "non-scaling-stroke");
   svg.appendChild(line);
 
@@ -2237,6 +2273,9 @@ export function closeJournal() {
   const root = document.getElementById("journal-root");
   root.classList.remove("visible");
   root.innerHTML = "";
+  // Restore canvas focus so keyboard input resumes after closing (a DOM
+  // button click moved focus off the Kaplay canvas).
+  document.querySelector("canvas")?.focus();
 }
 
 export function isJournalOpen() {
@@ -2279,6 +2318,11 @@ import gsap from "gsap";
 
 export function registerEndingScene() {
   scene("ending", () => {
+    // The lantern overlay is left display:block by a dim final tier and isn't
+    // a tier scene here, so hide it explicitly or it darkens the ending.
+    const lantern = document.getElementById("lantern-overlay");
+    if (lantern) lantern.style.display = "none";
+
     add([rect(width(), height()), pos(0, 0), color(20, 18, 30)]);
 
     if (isJourneyComplete()) {
@@ -2326,7 +2370,9 @@ export function registerEndingScene() {
         anchor("center"),
         color(201, 162, 75),
       ]);
-      onKeyPress("space", () => go("tier", "folk-arts"));
+      // Return to the FIRST tier, not folk-arts — otherwise the player skips
+      // the Surface tier and can never surface its fragment (f01).
+      onKeyPress("space", () => go("tier", magazine.tiers[0].id));
     }
   });
 }
