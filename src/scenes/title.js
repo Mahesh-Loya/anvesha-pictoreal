@@ -73,7 +73,7 @@ export function registerTitleScene() {
 
     function begin() {
       playPageOpen();
-      go("tier", "surface");
+      go("journey");
     }
     onKeyPress("space", begin);
     onClick(begin);

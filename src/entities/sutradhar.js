@@ -6,8 +6,9 @@ const SPEED = 190;
 // Draws the Sutradhar in the object's local space (origin at the figure's
 // center). `t` is time, `moving` gates the walk animation, `facing` is ±1.
 // Colors are built here (not at module scope) because Kaplay's rgb() only
-// exists after kaplay() has initialized.
-function drawSutradhar(t, moving, facing) {
+// exists after kaplay() has initialized. Exported so the journey-map avatar
+// reuses the exact same character.
+export function drawSutradhar(t, moving, facing) {
   const SKIN = rgb(224, 178, 128);
   const ROBE = rgb(217, 122, 43); // saffron
   const ROBE_DARK = rgb(165, 72, 46); // terracotta shade

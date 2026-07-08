@@ -1,6 +1,7 @@
 import kaplay from "kaplay";
 import { registerTitleScene } from "./scenes/title.js";
 import { registerTierScene } from "./scenes/tier.js";
+import { registerJourneyScene } from "./scenes/journey.js";
 import { registerEndingScene } from "./scenes/ending.js";
 
 const k = kaplay({
@@ -15,6 +16,7 @@ setGravity(0);
 
 registerTitleScene();
 registerTierScene();
+registerJourneyScene();
 registerEndingScene();
 
 go("title");

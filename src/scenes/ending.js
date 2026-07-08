@@ -58,9 +58,7 @@ export function registerEndingScene() {
         anchor("center"),
         color(201, 162, 75),
       ]);
-      // Return to the FIRST tier, not folk-arts — otherwise the player skips
-      // the Surface tier and can never surface its fragment (f01).
-      onKeyPress("space", () => go("tier", magazine.tiers[0].id));
+      onKeyPress("space", () => go("journey"));
     }
   });
 }
