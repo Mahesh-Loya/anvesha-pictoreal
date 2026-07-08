@@ -92,7 +92,14 @@ for (let i = -1; i < STOPS.length + 1; i++) {
   scene.add(slab);
 
   for (const sx of [-8, 8]) {
-    // side wall
+    // stepwell terraces: stacked ledges rising outward, like a baoli's steps
+    for (let s = 0; s < 4; s++) {
+      const ledge = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.55, STEP_Z + 0.2), s % 2 ? stoneDark : stone);
+      ledge.position.set(sx - Math.sign(sx) * (2.2 - s * 0.95), c.y - 1.4 + s * 0.95, c.z);
+      ledge.receiveShadow = true;
+      scene.add(ledge);
+    }
+    // side wall (behind the terraces)
     const wall = new THREE.Mesh(new THREE.BoxGeometry(1.2, STEP_Y + 3, STEP_Z + 0.2), stone);
     wall.position.set(sx, c.y + 0.5, c.z);
     wall.receiveShadow = true;
@@ -146,13 +153,44 @@ const sash = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.14, 8, 16), new THRE
 sash.position.y = 2.1;
 sash.rotation.x = Math.PI / 2;
 hero.add(sash);
+// head + face grouped so they bob together (face is on the -Z side, toward
+// the camera — the Sutradhar looks at the seeker like a guide)
+const headGroup = new THREE.Group();
+hero.add(headGroup);
 const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), new THREE.MeshStandardMaterial({ color: 0xe0b280, roughness: 0.6 }));
 head.position.y = 3.3;
 head.castShadow = true;
-hero.add(head);
+headGroup.add(head);
 const turban = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x145047 }));
 turban.position.y = 3.55;
-hero.add(turban);
+headGroup.add(turban);
+const jewel = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xfcde5a, emissiveIntensity: 1.5 }));
+jewel.position.set(0, 3.9, -0.42);
+headGroup.add(jewel);
+const eyeWhite = new THREE.MeshStandardMaterial({ color: 0xf4ece0, roughness: 0.4 });
+const eyeDark = new THREE.MeshStandardMaterial({ color: 0x14201c, roughness: 0.3 });
+const browMat = new THREE.MeshStandardMaterial({ color: 0x2a1f14 });
+for (const ex of [-0.18, 0.18]) {
+  const white = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 12), eyeWhite);
+  white.position.set(ex, 3.34, -0.44);
+  white.scale.set(1, 1.25, 0.6);
+  headGroup.add(white);
+  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), eyeDark);
+  pupil.position.set(ex, 3.34, -0.52);
+  headGroup.add(pupil);
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.06), browMat);
+  brow.position.set(ex, 3.52, -0.48);
+  headGroup.add(brow);
+}
+const nose = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 8), new THREE.MeshStandardMaterial({ color: 0xcf9f6f }));
+nose.position.set(0, 3.2, -0.5);
+nose.rotation.x = -Math.PI / 2;
+headGroup.add(nose);
+// the third eye — the Anvesha seeing-eye, glowing gold on the brow
+const tilak = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xfcde5a, emissiveIntensity: 2 }));
+tilak.position.set(0, 3.62, -0.46);
+tilak.scale.set(0.7, 1.3, 0.5);
+headGroup.add(tilak);
 // arms (pivot at the shoulder so they can swing)
 const armMat = new THREE.MeshStandardMaterial({ color: 0xd97a2b, roughness: 0.7 });
 const armGeo = new THREE.CylinderGeometry(0.16, 0.14, 1.4, 8);
@@ -313,6 +351,11 @@ addEventListener("keydown", (e) => {
     const t = nearestOpenableTablet();
     if (t) openStop(t.userData.stop);
   }
+  // quick shortcuts: index / journal
+  if (!isAnyOverlayOpen()) {
+    if (k === "i") openContents();
+    if (k === "j") openJournal();
+  }
   if (k === "escape") {
     if (isReaderOpen()) return closeReader();
     if (isContentsOpen()) return closeContents();
@@ -364,25 +407,31 @@ function animate() {
   const overlay = isAnyOverlayOpen() || !started;
 
   if (!overlay) {
+    const run = keys["shift"] ? 1.9 : 1;
     let dp = 0;
-    if (keys["arrowdown"] || keys["s"]) dp += 1;
-    if (keys["arrowup"] || keys["w"]) dp -= 1;
+    // W / Up = go DEEPER (down the well, away from camera); S / Down = back up
+    if (keys["arrowup"] || keys["w"]) dp += 1;
+    if (keys["arrowdown"] || keys["s"]) dp -= 1;
     let ds = 0;
-    if (keys["arrowleft"] || keys["a"]) ds -= 1;
-    if (keys["arrowright"] || keys["d"]) ds += 1;
-    heroP = Math.max(0, Math.min(STOPS.length - 1, heroP + dp * 0.04));
-    strafe = Math.max(-(SIDE - 1.2), Math.min(SIDE - 1.2, strafe + ds * 0.14));
+    // A / Left = step left on screen; D / Right = step right (camera looks
+    // down +Z, so screen-left is +X and screen-right is -X)
+    if (keys["arrowleft"] || keys["a"]) ds += 1;
+    if (keys["arrowright"] || keys["d"]) ds -= 1;
+    heroP = Math.max(0, Math.min(STOPS.length - 1, heroP + dp * 0.045 * run));
+    strafe = Math.max(-(SIDE - 1.0), Math.min(SIDE - 1.0, strafe + ds * 0.16 * run));
     placeHero();
   }
 
-  // idle/walk bob + arm swing + facing
+  // gentle float bob + subtle gesture; the Sutradhar keeps facing the seeker
   const moving = !overlay && (keys["arrowdown"] || keys["s"] || keys["arrowup"] || keys["w"] || keys["arrowleft"] || keys["a"] || keys["arrowright"] || keys["d"]);
-  const step = moving ? Math.sin(t * 9) : Math.sin(t * 2) * 0.25;
-  robe.position.y = 1.5 + Math.abs(Math.sin(t * (moving ? 9 : 2))) * (moving ? 0.16 : 0.04);
-  head.position.y = 3.3 + Math.abs(Math.sin(t * (moving ? 9 : 2))) * (moving ? 0.16 : 0.04);
-  armL.rotation.x = step * (moving ? 0.9 : 0.15);
-  armR.rotation.x = -step * (moving ? 0.5 : 0.12) - 0.35; // right arm holds the lamp forward
-  hero.rotation.y += ((strafe > 0.3 ? 0.3 : strafe < -0.3 ? -0.3 : 0) - hero.rotation.y) * 0.1;
+  const rate = moving ? 6 : 2;
+  const bob = Math.abs(Math.sin(t * rate)) * (moving ? 0.12 : 0.05);
+  robe.position.y = 1.5 + bob;
+  headGroup.position.y = bob;
+  armL.rotation.x = Math.sin(t * rate) * (moving ? 0.4 : 0.12);
+  armR.rotation.x = -0.5 + Math.sin(t * rate) * 0.1; // right arm holds the lamp out
+  // face the seeker, tilting slightly toward the way you step
+  hero.rotation.y += ((strafe > 0.3 ? -0.18 : strafe < -0.3 ? 0.18 : 0) - hero.rotation.y) * 0.1;
   lamp.intensity = 7 + Math.sin(t * 12) * 1.3;
   diyaGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.15);
 
@@ -422,9 +471,9 @@ function animate() {
   motes.geometry.attributes.position.needsUpdate = true;
 
   // third-person camera behind & above the hero
-  const desired = new THREE.Vector3(hero.position.x * 0.5, hero.position.y + 6.5, hero.position.z - 9);
+  const desired = new THREE.Vector3(hero.position.x * 0.4, hero.position.y + 4.2, hero.position.z - 8.5);
   camera.position.lerp(desired, 0.08);
-  camera.lookAt(hero.position.x * 0.4, hero.position.y + 2, hero.position.z + 3);
+  camera.lookAt(hero.position.x * 0.3, hero.position.y + 2.6, hero.position.z + 6);
 
   // proximity prompt
   if (!overlay) {

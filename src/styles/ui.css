@@ -473,6 +473,24 @@
 }
 #three-root canvas { display: block; }
 
+#controls-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 11;
+  pointer-events: none;
+  color: var(--silver-dim);
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  background: rgba(8, 26, 22, 0.5);
+  padding: 4px 12px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+#controls-hint b { color: var(--silver); font-weight: 600; }
+
 /* 3D opening splash with the brand logo */
 #splash {
   position: fixed;
@@ -488,10 +506,26 @@
 }
 #splash.gone { opacity: 0; pointer-events: none; }
 #splash img {
-  width: min(58vh, 60vw);
-  max-width: 460px;
+  width: min(46vh, 52vw);
+  max-width: 380px;
   filter: drop-shadow(0 0 40px rgba(20, 120, 100, 0.4));
   animation: splashFloat 4s ease-in-out infinite;
+}
+.splash-title {
+  font-family: Georgia, serif;
+  font-size: clamp(34px, 6vw, 58px);
+  letter-spacing: 10px;
+  color: var(--diya-gold);
+  text-shadow: 0 0 24px rgba(252, 222, 90, 0.35);
+  margin-top: 4px;
+}
+.splash-sub {
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--silver-dim);
+  margin-top: -6px;
 }
 @keyframes splashFloat {
   0%, 100% { transform: translateY(0) scale(1); }
