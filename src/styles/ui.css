@@ -1,0 +1,300 @@
+/* populated starting Task 8 */
+
+#lantern-overlay {
+  position: fixed;
+  inset: 0;
+  /* Below the HUD (z-index 10) so the lantern darkens the game world but
+     leaves the always-on counter/buttons fully legible; still above the
+     Kaplay canvas, which has no explicit z-index. */
+  z-index: 5;
+  pointer-events: none;
+  display: none;
+}
+
+.folk-border {
+  border-style: solid;
+  border-width: 12px;
+  border-image-slice: 12;
+  border-image-repeat: round;
+  border-image-source: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><rect width='24' height='24' fill='none'/><circle cx='12' cy='6' r='3' fill='%23C9A24B'/><circle cx='6' cy='18' r='3' fill='%23C9A24B'/><circle cx='18' cy='18' r='3' fill='%23C9A24B'/></svg>");
+}
+
+#dialogue-root {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: none;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+#dialogue-root.visible {
+  display: flex;
+}
+
+.dialogue-box {
+  background: var(--overlay-dark);
+  border-radius: 8px;
+  padding: 16px 24px;
+  max-width: 560px;
+  color: var(--archival-ivory);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  text-align: center;
+}
+
+.dialogue-hint {
+  display: block;
+  margin-top: 8px;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  color: var(--linework-gold);
+}
+
+#reader-root {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-dark);
+  z-index: 30;
+}
+
+#reader-root.visible {
+  display: flex;
+}
+
+.reader-card {
+  position: relative;
+  width: min(90vw, 520px);
+  height: min(85vh, 720px);
+  background: var(--archival-ivory);
+  border-radius: 4px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.reader-image-wrap {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.reader-image-wrap img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+}
+
+.reader-image-wrap img.hidden-layer {
+  clip-path: polygon(0 0, 0 0, 0 0);
+}
+
+.reader-caption-plate {
+  padding: 10px 16px;
+  background: var(--ink);
+  color: var(--archival-ivory);
+  font-family: Georgia, serif;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reader-peel-hint {
+  position: absolute;
+  bottom: 70px;
+  right: 16px;
+  color: var(--ink);
+  background: rgba(246, 231, 210, 0.85);
+  border: 1px solid var(--linework-gold);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: system-ui, sans-serif;
+}
+
+.reader-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--ink);
+  color: var(--archival-ivory);
+  font-size: 18px;
+  cursor: pointer;
+  z-index: 5;
+}
+
+#hud-root {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.hud-counter {
+  pointer-events: auto;
+  background: var(--overlay-dark);
+  border: 2px solid var(--linework-gold);
+  color: var(--archival-ivory);
+  font-family: Georgia, serif;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+.hud-buttons {
+  pointer-events: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.hud-buttons button {
+  background: var(--overlay-dark);
+  border: 2px solid var(--linework-gold);
+  color: var(--archival-ivory);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+#journal-root {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-dark);
+  z-index: 25;
+}
+
+#journal-root.visible {
+  display: flex;
+}
+
+.journal-card {
+  background: var(--archival-ivory);
+  border-radius: 4px;
+  padding: 24px;
+  display: grid;
+  gap: 4px;
+  position: relative;
+}
+
+.journal-slot {
+  width: 64px;
+  height: 64px;
+  background: var(--ink);
+  border: 1px solid var(--linework-gold);
+  opacity: 0.25;
+}
+
+.journal-slot.filled {
+  opacity: 1;
+}
+
+.journal-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--ink);
+  color: var(--archival-ivory);
+  cursor: pointer;
+}
+
+#fragment-flight-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  /* Above the reader (z-index 30) so the discovery dot is visible flying
+     from the just-opened page to the journal button, not occluded by it. */
+  z-index: 35;
+}
+
+.flying-fragment {
+  position: fixed;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--diya-gold);
+  box-shadow: 0 0 12px var(--diya-gold);
+}
+
+#transition-root {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  opacity: 0;
+  background: var(--ink);
+  overflow: hidden;
+  display: none;
+}
+
+#transition-root.visible {
+  display: block;
+}
+
+.transition-steps {
+  position: absolute;
+  inset: 0;
+}
+
+.step {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 34%;
+  background: var(--linework-gold);
+  opacity: 0.5;
+}
+
+.step-1 { top: 0; }
+.step-2 { top: 33%; }
+.step-3 { top: 66%; }
+
+.journal-thread {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#completion-bloom {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300px;
+  height: 300px;
+  margin: -150px 0 0 -150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--diya-gold) 0%, transparent 70%);
+  pointer-events: none;
+}

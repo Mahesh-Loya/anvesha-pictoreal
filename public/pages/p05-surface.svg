@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="640" viewBox="0 0 480 640">
+  <rect width="480" height="640" fill="#D97A2B" />
+  <circle cx="259" cy="497" r="6" fill="#C9A24B" />
+  <polygon points="312,526 326,526 319,512" fill="#2A1F14" />
+  <rect x="365" y="555" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="418" cy="584" r="6" fill="#C9A24B" />
+  <polygon points="471,613 485,613 478,599" fill="#2A1F14" />
+  <rect x="44" y="2" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="97" cy="31" r="6" fill="#C9A24B" />
+  <polygon points="150,60 164,60 157,46" fill="#2A1F14" />
+  <rect x="203" y="89" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="256" cy="118" r="6" fill="#C9A24B" />
+  <polygon points="309,147 323,147 316,133" fill="#2A1F14" />
+  <rect x="362" y="176" width="10" height="10" fill="#F6E7D2" />
+  <text x="240" y="600" font-family="Georgia, serif" font-size="20" fill="#F6E7D2" text-anchor="middle">Chittara: Walls as Canvas</text>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="640" viewBox="0 0 480 640">
+  <rect width="480" height="640" fill="#D97A2B" />
+  <circle cx="74" cy="142" r="6" fill="#C9A24B" />
+  <polygon points="127,171 141,171 134,157" fill="#2A1F14" />
+  <rect x="180" y="200" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="233" cy="229" r="6" fill="#C9A24B" />
+  <polygon points="286,258 300,258 293,244" fill="#2A1F14" />
+  <rect x="339" y="287" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="392" cy="316" r="6" fill="#C9A24B" />
+  <polygon points="445,345 459,345 452,331" fill="#2A1F14" />
+  <rect x="18" y="374" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="71" cy="403" r="6" fill="#C9A24B" />
+  <polygon points="124,432 138,432 131,418" fill="#2A1F14" />
+  <rect x="177" y="461" width="10" height="10" fill="#F6E7D2" />
+  <text x="240" y="600" font-family="Georgia, serif" font-size="20" fill="#F6E7D2" text-anchor="middle">Warli: The Geometry of Daily Life</text>
+</svg>

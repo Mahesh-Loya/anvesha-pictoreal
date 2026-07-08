@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="640" viewBox="0 0 480 640">
+  <rect width="480" height="640" fill="#E8C77A" />
+  <circle cx="37" cy="71" r="6" fill="#C9A24B" />
+  <polygon points="90,100 104,100 97,86" fill="#2A1F14" />
+  <rect x="143" y="129" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="196" cy="158" r="6" fill="#C9A24B" />
+  <polygon points="249,187 263,187 256,173" fill="#2A1F14" />
+  <rect x="302" y="216" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="355" cy="245" r="6" fill="#C9A24B" />
+  <polygon points="408,274 422,274 415,260" fill="#2A1F14" />
+  <rect x="461" y="303" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="34" cy="332" r="6" fill="#C9A24B" />
+  <polygon points="87,361 101,361 94,347" fill="#2A1F14" />
+  <rect x="140" y="390" width="10" height="10" fill="#F6E7D2" />
+  <text x="240" y="600" font-family="Georgia, serif" font-size="20" fill="#F6E7D2" text-anchor="middle">Editor's Note</text>
+</svg>

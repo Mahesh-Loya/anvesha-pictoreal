@@ -1,0 +1,13 @@
+:root {
+  --tier-surface: #E8C77A;
+  --tier-folk-arts: #D97A2B;
+  --tier-dialects: #B5482E;
+  --tier-library: #7A2230;
+  --tier-architecture: #34406B;
+  --tier-inner-depths: #243A33;
+  --linework-gold: #C9A24B;
+  --diya-gold: #FCDE5A;
+  --archival-ivory: #F6E7D2;
+  --ink: #2A1F14;
+  --overlay-dark: rgba(10, 8, 14, 0.92);
+}

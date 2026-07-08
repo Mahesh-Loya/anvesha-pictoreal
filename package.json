@@ -1,0 +1,21 @@
+{
+  "name": "anvesha-stepwell",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "gen:placeholders": "node scripts/generate-placeholder-content.mjs"
+  },
+  "dependencies": {
+    "kaplay": "3001",
+    "gsap": "^3.12.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "vitest": "^2.1.0"
+  }
+}
