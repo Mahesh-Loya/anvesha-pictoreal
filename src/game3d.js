@@ -351,10 +351,15 @@ addEventListener("keydown", (e) => {
     const t = nearestOpenableTablet();
     if (t) openStop(t.userData.stop);
   }
-  // quick shortcuts: index / journal
+  // quick shortcuts: index / journal / cycle camera angle
   if (!isAnyOverlayOpen()) {
     if (k === "i") openContents();
     if (k === "j") openJournal();
+    if (k === "v") {
+      presetIdx = (presetIdx + 1) % PRESETS.length;
+      camYaw = PRESETS[presetIdx].yaw;
+      camPitch = PRESETS[presetIdx].pitch;
+    }
   }
   if (k === "escape") {
     if (isReaderOpen()) return closeReader();
@@ -364,9 +369,42 @@ addEventListener("keydown", (e) => {
 });
 addEventListener("keyup", (e) => (keys[e.key.toLowerCase()] = false));
 
-// click-to-open via raycasting
+// ---- camera orbit (drag to rotate) + preset angles (V) ----
+let camYaw = 0;
+let camPitch = 0.34;
+const CAM_DIST = 9.5;
+const PRESETS = [
+  { yaw: 0, pitch: 0.34 },      // behind
+  { yaw: 0.7, pitch: 0.28 },    // over-shoulder
+  { yaw: 0, pitch: 0.85 },      // high looking down the well
+  { yaw: Math.PI * 0.42, pitch: 0.22 }, // side profile
+];
+let presetIdx = 0;
+
+// distinguish a click (open a tablet) from a drag (rotate the camera)
 const ray = new THREE.Raycaster();
-renderer.domElement.addEventListener("click", (e) => {
+let down = null;
+let dragging = false;
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  down = { x: e.clientX, y: e.clientY };
+  dragging = false;
+});
+renderer.domElement.addEventListener("pointermove", (e) => {
+  if (!down) return;
+  const dx = e.clientX - down.x;
+  const dy = e.clientY - down.y;
+  if (!dragging && Math.hypot(dx, dy) > 6) dragging = true;
+  if (dragging) {
+    camYaw -= dx * 0.006;
+    camPitch = Math.max(0.08, Math.min(1.15, camPitch + dy * 0.004));
+    down = { x: e.clientX, y: e.clientY };
+  }
+});
+renderer.domElement.addEventListener("pointerup", (e) => {
+  const wasDrag = dragging;
+  down = null;
+  dragging = false;
+  if (wasDrag) return; // rotated the view, don't open
   if (isNarrating()) { advanceNarration(); return; }
   if (isAnyOverlayOpen()) return;
   const ndc = new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
@@ -471,9 +509,14 @@ function animate() {
   motes.geometry.attributes.position.needsUpdate = true;
 
   // third-person camera behind & above the hero
-  const desired = new THREE.Vector3(hero.position.x * 0.4, hero.position.y + 4.2, hero.position.z - 8.5);
-  camera.position.lerp(desired, 0.08);
-  camera.lookAt(hero.position.x * 0.3, hero.position.y + 2.6, hero.position.z + 6);
+  // orbit camera: spherical offset around the hero from yaw/pitch
+  const cp = Math.max(0.08, Math.min(1.15, camPitch));
+  const ox = Math.sin(camYaw) * Math.cos(cp) * CAM_DIST;
+  const oy = Math.sin(cp) * CAM_DIST + 1.6;
+  const oz = -Math.cos(camYaw) * Math.cos(cp) * CAM_DIST;
+  const desired = new THREE.Vector3(hero.position.x + ox, hero.position.y + oy, hero.position.z + oz);
+  camera.position.lerp(desired, 0.1);
+  camera.lookAt(hero.position.x, hero.position.y + 2.4, hero.position.z + 3);
 
   // proximity prompt
   if (!overlay) {

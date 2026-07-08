@@ -167,6 +167,32 @@
   z-index: 5;
 }
 
+.reader-listen {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+  border: 1px solid var(--linework-gold);
+  background: var(--ink);
+  color: var(--archival-ivory);
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+}
+.reader-listen:hover { background: var(--teal-mid); }
+
+.reader-blurb {
+  padding: 10px 16px 0;
+  background: var(--archival-ivory);
+  color: var(--ink);
+  font-family: Georgia, serif;
+  font-size: 14px;
+  line-height: 1.4;
+  font-style: italic;
+}
+
 #hud-root {
   position: fixed;
   top: 12px;

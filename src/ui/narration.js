@@ -1,3 +1,5 @@
+import { speak, stopSpeaking } from "../systems/voice.js";
+
 // The Sutradhar's narration box — a bottom panel where the guide speaks.
 // Distinct from NPC dialogue: it carries a portrait and the Sutradhar's name,
 // and is used for the welcome, section intros, and closing lines.
@@ -28,6 +30,7 @@ function render() {
     </div>`;
   root.classList.add("visible");
   root.querySelector(".narration-box").addEventListener("click", advanceNarration);
+  speak(lines[idx], { rate: 0.9, pitch: 1.0 }); // the Sutradhar speaks the line
 }
 
 export function narrate(newLines, onDone) {
@@ -56,6 +59,7 @@ export function closeNarration() {
   root.innerHTML = "";
   lines = [];
   idx = 0;
+  stopSpeaking();
   document.querySelector("canvas")?.focus();
 }
 

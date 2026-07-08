@@ -1,5 +1,6 @@
 import gsap from "gsap";
 import { playPageOpen } from "../systems/audio.js";
+import { speak, stopSpeaking, isVoiceEnabled } from "../systems/voice.js";
 
 const readPageIds = new Set();
 let currentPageData = null;
@@ -20,14 +21,17 @@ export function openReader(pageData, onFirstRead) {
   const root = document.getElementById("reader-root");
   const hasHidden = Boolean(pageData.hiddenImage);
 
+  const readText = `${pageData.title}. ${pageData.caption}. ${pageData.blurb || ""}`;
   root.innerHTML = `
     <div class="reader-card folk-border">
       <button class="reader-close" aria-label="Close">×</button>
+      <button class="reader-listen" aria-label="Read aloud">🔊 Read aloud</button>
       <div class="reader-image-wrap">
         <img class="surface-layer" src="${pageData.surfaceImage}" alt="${pageData.title}" />
         ${hasHidden ? `<img class="hidden-layer" src="${pageData.hiddenImage}" alt="${pageData.title} hidden layer" />` : ""}
       </div>
       ${hasHidden ? `<div class="reader-peel-hint">Drag or click a corner to lift the page</div>` : ""}
+      ${pageData.blurb ? `<div class="reader-blurb">${pageData.blurb}</div>` : ""}
       <div class="reader-caption-plate">
         <span>${pageData.caption}</span>
         <span>${pageData.title}</span>
@@ -37,6 +41,13 @@ export function openReader(pageData, onFirstRead) {
   root.classList.add("visible");
 
   root.querySelector(".reader-close").addEventListener("click", closeReader);
+  const listenBtn = root.querySelector(".reader-listen");
+  listenBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    speak(readText, { rate: 0.92 });
+  });
+  // auto-read the page on open if voice is on
+  if (isVoiceEnabled()) setTimeout(() => speak(readText, { rate: 0.92 }), 350);
 
   const wrap = root.querySelector(".reader-image-wrap");
   wrap.addEventListener("wheel", (e) => {
@@ -69,6 +80,7 @@ export function closeReader() {
   root.classList.remove("visible");
   root.innerHTML = "";
   currentPageData = null;
+  stopSpeaking();
   // Clicking the close button moved DOM focus off the Kaplay canvas, which
   // would leave keyboard input (movement, E) dead until the player clicks
   // back. Restore focus so play resumes immediately.

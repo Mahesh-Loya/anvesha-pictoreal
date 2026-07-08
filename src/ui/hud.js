@@ -1,5 +1,6 @@
 import { getSurfacedCount, getTotalFragments } from "../systems/fragments.js";
 import { toggleMute, isMuted } from "../systems/audio.js";
+import { toggleVoice, isVoiceEnabled } from "../systems/voice.js";
 import { openJournal } from "./journal.js";
 import { openContents } from "./contents.js";
 import gsap from "gsap";
@@ -11,9 +12,15 @@ export function mountHud() {
     <div class="hud-buttons">
       <button id="hud-index" title="Index">☰</button>
       <button id="hud-journal" title="Collection">📖</button>
-      <button id="hud-mute" title="Sound">${isMuted() ? "🔇" : "🔊"}</button>
+      <button id="hud-voice" title="Narration voice">${isVoiceEnabled() ? "🗣️" : "🔇"}</button>
+      <button id="hud-mute" title="Sound effects">${isMuted() ? "🔕" : "🔔"}</button>
     </div>
   `;
+  document.getElementById("hud-voice").addEventListener("click", () => {
+    const on = toggleVoice();
+    document.getElementById("hud-voice").textContent = on ? "🗣️" : "🔇";
+    document.querySelector("canvas")?.focus();
+  });
   document.getElementById("hud-mute").addEventListener("click", () => {
     const muted = toggleMute();
     document.getElementById("hud-mute").textContent = muted ? "🔇" : "🔊";
