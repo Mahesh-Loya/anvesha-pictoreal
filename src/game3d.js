@@ -1,4 +1,7 @@
 import * as THREE from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import gsap from "gsap";
 import { magazine } from "./content/magazine.config.js";
 import { state } from "./state.js";
@@ -47,8 +50,17 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.getElementById("three-root").appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0x2a6b5f, 0.5));
-const rim = new THREE.DirectionalLight(0x8fd8c8, 0.35);
+// cinematic bloom so every glow (diya, tablets, lanterns) reads as light
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.85, 0.7, 0.8);
+composer.addPass(bloom);
+
+const ambient = new THREE.AmbientLight(0x2a6b5f, 0.55);
+scene.add(ambient);
+const hemi = new THREE.HemisphereLight(0x1f6456, 0x06201b, 0.5);
+scene.add(hemi);
+const rim = new THREE.DirectionalLight(0x8fd8c8, 0.4);
 rim.position.set(-10, 20, 8);
 scene.add(rim);
 
@@ -63,21 +75,56 @@ function pathAt(p) {
 // ---- stepwell geometry along the path ----
 const stone = new THREE.MeshStandardMaterial({ color: 0x14504a, roughness: 0.92, metalness: 0.04 });
 const stoneDark = new THREE.MeshStandardMaterial({ color: 0x0e3d38, roughness: 1 });
+const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1a5c50, roughness: 0.85 });
+const gold = new THREE.MeshStandardMaterial({ color: 0xc9a24b, roughness: 0.5, metalness: 0.6, emissive: 0x3a2c0a, emissiveIntensity: 0.5 });
+const lanternMat = new THREE.MeshStandardMaterial({ color: 0xffdd88, emissive: 0xffb347, emissiveIntensity: 2.2 });
+const lanterns = []; // {mesh, phase}
+
+const pillarGeo = new THREE.CylinderGeometry(0.5, 0.6, STEP_Y + 3, 10);
+const capGeo = new THREE.BoxGeometry(1.4, 0.5, 1.4);
+const lanternGeo = new THREE.SphereGeometry(0.32, 12, 12);
+
 for (let i = -1; i < STOPS.length + 1; i++) {
   const c = pathAt(i);
-  // a broad step/landing slab
   const slab = new THREE.Mesh(new THREE.BoxGeometry(16, 1, STEP_Z + 0.2), i % 2 ? stoneDark : stone);
   slab.position.set(0, c.y - 1.5, c.z);
   slab.receiveShadow = true;
   scene.add(slab);
-  // side walls
+
   for (const sx of [-8, 8]) {
+    // side wall
     const wall = new THREE.Mesh(new THREE.BoxGeometry(1.2, STEP_Y + 3, STEP_Z + 0.2), stone);
     wall.position.set(sx, c.y + 0.5, c.z);
     wall.receiveShadow = true;
     wall.castShadow = true;
     scene.add(wall);
+    // carved gold band on the wall
+    const band = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.25, STEP_Z), gold);
+    band.position.set(sx, c.y + 1.6, c.z);
+    scene.add(band);
+    // flanking pillar + capital
+    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+    pillar.position.set(sx - Math.sign(sx) * 1.3, c.y + 0.5, c.z - STEP_Z / 2);
+    pillar.castShadow = true;
+    scene.add(pillar);
+    const cap = new THREE.Mesh(capGeo, gold);
+    cap.position.set(pillar.position.x, c.y + 2.3, pillar.position.z);
+    scene.add(cap);
+    // hanging lantern (emissive — glows via bloom)
+    const lantern = new THREE.Mesh(lanternGeo, lanternMat.clone());
+    lantern.position.set(sx - Math.sign(sx) * 1.9, c.y + 1.4, c.z + STEP_Z / 2 - 0.5);
+    scene.add(lantern);
+    lanterns.push({ mesh: lantern, phase: i * 1.3 + (sx > 0 ? 0 : 0.6) });
+    // thin chain
+    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 6), gold);
+    chain.position.set(lantern.position.x, lantern.position.y + 0.9, lantern.position.z);
+    scene.add(chain);
   }
+
+  // arch lintel across the top of each landing
+  const arch = new THREE.Mesh(new THREE.BoxGeometry(15, 0.7, 0.8), stone);
+  arch.position.set(0, c.y + 2.6, c.z + STEP_Z / 2 - 0.4);
+  scene.add(arch);
 }
 // water at the very bottom
 const water = new THREE.Mesh(
@@ -106,9 +153,23 @@ hero.add(head);
 const turban = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x145047 }));
 turban.position.y = 3.55;
 hero.add(turban);
+// arms (pivot at the shoulder so they can swing)
+const armMat = new THREE.MeshStandardMaterial({ color: 0xd97a2b, roughness: 0.7 });
+const armGeo = new THREE.CylinderGeometry(0.16, 0.14, 1.4, 8);
+armGeo.translate(0, -0.7, 0); // pivot at top
+const armL = new THREE.Group();
+armL.position.set(-0.7, 2.7, 0);
+const armLmesh = new THREE.Mesh(armGeo, armMat);
+armL.add(armLmesh);
+hero.add(armL);
+const armR = new THREE.Group(); // holds the diya
+armR.position.set(0.7, 2.7, 0.2);
+const armRmesh = new THREE.Mesh(armGeo, armMat);
+armR.add(armRmesh);
+hero.add(armR);
 const diya = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffcf5a, emissiveIntensity: 3 }));
-diya.position.set(1.0, 2.4, 0.5);
-hero.add(diya);
+diya.position.set(0.15, -1.5, 0.35);
+armR.add(diya);
 const diyaGlow = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.25 }));
 diya.add(diyaGlow);
 const lamp = new THREE.PointLight(0xffcf6a, 7, 30, 2);
@@ -279,6 +340,7 @@ addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
 });
 
 // ---- HUD (welcome narration fires from begin() after the splash) ----
@@ -313,13 +375,28 @@ function animate() {
     placeHero();
   }
 
-  // idle/walk bob + facing
+  // idle/walk bob + arm swing + facing
   const moving = !overlay && (keys["arrowdown"] || keys["s"] || keys["arrowup"] || keys["w"] || keys["arrowleft"] || keys["a"] || keys["arrowright"] || keys["d"]);
-  robe.position.y = 1.5 + Math.abs(Math.sin(t * 3)) * (moving ? 0.14 : 0.03);
-  head.position.y = 3.3 + Math.abs(Math.sin(t * 3)) * (moving ? 0.14 : 0.03);
-  hero.rotation.y += ((strafe > 0 ? 0.25 : strafe < 0 ? -0.25 : 0) - hero.rotation.y) * 0.1;
+  const step = moving ? Math.sin(t * 9) : Math.sin(t * 2) * 0.25;
+  robe.position.y = 1.5 + Math.abs(Math.sin(t * (moving ? 9 : 2))) * (moving ? 0.16 : 0.04);
+  head.position.y = 3.3 + Math.abs(Math.sin(t * (moving ? 9 : 2))) * (moving ? 0.16 : 0.04);
+  armL.rotation.x = step * (moving ? 0.9 : 0.15);
+  armR.rotation.x = -step * (moving ? 0.5 : 0.12) - 0.35; // right arm holds the lamp forward
+  hero.rotation.y += ((strafe > 0.3 ? 0.3 : strafe < -0.3 ? -0.3 : 0) - hero.rotation.y) * 0.1;
   lamp.intensity = 7 + Math.sin(t * 12) * 1.3;
   diyaGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.15);
+
+  // lantern flicker (bloom makes these read as real flame)
+  for (const l of lanterns) {
+    l.mesh.material.emissiveIntensity = 1.8 + Math.sin(t * 8 + l.phase) * 0.5 + Math.sin(t * 23 + l.phase) * 0.2;
+  }
+
+  // per-section mood: fog + ambient deepen as you descend
+  const depth = heroP / Math.max(1, STOPS.length - 1);
+  const fogC = new THREE.Color(0x0d3b33).lerp(new THREE.Color(0x07231e), depth);
+  scene.fog.color.copy(fogC);
+  scene.background.copy(fogC);
+  ambient.intensity = 0.6 - depth * 0.18;
 
   // tablets: state-driven glow + float
   const cur = currentIndex();
@@ -359,7 +436,7 @@ function animate() {
   }
 
   checkComplete();
-  renderer.render(scene, camera);
+  composer.render();
   requestAnimationFrame(animate);
 }
 animate();
