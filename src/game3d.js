@@ -38,7 +38,7 @@ const currentIndex = () => {
 // ---- scene / renderer ----
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x06201b);
-scene.fog = new THREE.FogExp2(0x06201b, 0.03);
+scene.fog = new THREE.FogExp2(0x06201b, 0.019);
 
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 300);
 
@@ -59,13 +59,47 @@ composer.addPass(bloom);
 
 // Dark world: only a whisper of fill so the Sutradhar's torch is the light
 // that reveals the space and the hidden pages as you move.
-const ambient = new THREE.AmbientLight(0x1a4a42, 0.14);
+const ambient = new THREE.AmbientLight(0x24645a, 0.26);
 scene.add(ambient);
-const hemi = new THREE.HemisphereLight(0x1a5044, 0x040f0c, 0.16);
+const hemi = new THREE.HemisphereLight(0x2a6456, 0x060f0c, 0.3);
 scene.add(hemi);
 const rim = new THREE.DirectionalLight(0x8fd8c8, 0.1);
 rim.position.set(-10, 20, 8);
 scene.add(rim);
+
+// ---- procedural stone textures (canvas) so surfaces look carved, not flat ----
+function makeStoneTexture(r, g, b, strata = true) {
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 256;
+  const x = cv.getContext("2d");
+  x.fillStyle = `rgb(${r},${g},${b})`;
+  x.fillRect(0, 0, 256, 256);
+  if (strata) {
+    for (let i = 0; i < 26; i++) {
+      const y = (i / 26) * 256 + (Math.sin(i * 3.7) * 4);
+      const d = 0.75 + (i % 3) * 0.12;
+      x.fillStyle = `rgba(${r * d | 0},${g * d | 0},${b * d | 0},0.5)`;
+      x.fillRect(0, y, 256, 3 + (i % 2));
+    }
+  }
+  // mineral speckle
+  for (let i = 0; i < 9000; i++) {
+    const px = Math.random() * 256, py = Math.random() * 256;
+    const v = (Math.random() - 0.5) * 60;
+    x.fillStyle = `rgba(${Math.max(0, r + v) | 0},${Math.max(0, g + v) | 0},${Math.max(0, b + v) | 0},0.35)`;
+    x.fillRect(px, py, 2, 2);
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+function stoneMat(r, g, b, rep = 1) {
+  const map = makeStoneTexture(r, g, b);
+  map.repeat.set(rep, rep);
+  const bump = makeStoneTexture(r, g, b, false);
+  bump.repeat.set(rep, rep);
+  return new THREE.MeshStandardMaterial({ map, bumpMap: bump, bumpScale: 0.6, roughness: 0.95, metalness: 0.03 });
+}
 
 // ---- descent path helpers ----
 const STEP_Y = 3.2; // how far each stop drops
@@ -76,9 +110,10 @@ function pathAt(p) {
 }
 
 // ---- stepwell geometry along the path ----
-const stone = new THREE.MeshStandardMaterial({ color: 0x14504a, roughness: 0.92, metalness: 0.04 });
-const stoneDark = new THREE.MeshStandardMaterial({ color: 0x0e3d38, roughness: 1 });
-const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1a5c50, roughness: 0.85 });
+// warm carved sandstone (reads beautifully under the warm torch, cool in shadow)
+const stone = stoneMat(150, 120, 84, 2);
+const stoneDark = stoneMat(120, 96, 66, 2);
+const pillarMat = stoneMat(160, 130, 92, 1);
 const gold = new THREE.MeshStandardMaterial({ color: 0xc9a24b, roughness: 0.5, metalness: 0.6, emissive: 0x3a2c0a, emissiveIntensity: 0.5 });
 const lanternMat = new THREE.MeshStandardMaterial({ color: 0xffdd88, emissive: 0xffb347, emissiveIntensity: 2.2 });
 const lanterns = []; // {mesh, phase}
@@ -135,6 +170,32 @@ for (let i = -1; i < STOPS.length + 1; i++) {
   const arch = new THREE.Mesh(new THREE.BoxGeometry(15, 0.7, 0.8), stone);
   arch.position.set(0, c.y + 2.6, c.z + STEP_Z / 2 - 0.4);
   scene.add(arch);
+
+  // a run of real steps descending from this landing to the next
+  if (i < STOPS.length) {
+    const n = pathAt(i + 1);
+    const nSteps = 5;
+    for (let s = 0; s < nSteps; s++) {
+      const f = (s + 1) / (nSteps + 1);
+      const step = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.5, STEP_Z / nSteps + 0.3), s % 2 ? stoneDark : stone);
+      step.position.set(0, c.y - 1.2 - (c.y - n.y) * f + 0.4, c.z + (n.z - c.z) * f);
+      step.receiveShadow = true;
+      scene.add(step);
+    }
+  }
+
+  // a carved pedestal under each page (skip the padding rows -1 and end)
+  if (i >= 0 && i < STOPS.length) {
+    const side = i % 2 ? 1 : -1;
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 1.4, 8), pillarMat);
+    ped.position.set(side * SIDE, c.y - 0.6, c.z);
+    ped.receiveShadow = true;
+    ped.castShadow = true;
+    scene.add(ped);
+    const pedTop = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 0.9, 0.25, 8), gold);
+    pedTop.position.set(side * SIDE, c.y + 0.2, c.z);
+    scene.add(pedTop);
+  }
 }
 // water at the very bottom
 const water = new THREE.Mesh(
@@ -247,7 +308,7 @@ diya.position.set(0.05, -1.5, 0.1);
 armR.add(diya);
 const diyaGlow = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.3 }));
 diya.add(diyaGlow);
-const lamp = new THREE.PointLight(0xffce6a, 9, 34, 2);
+const lamp = new THREE.PointLight(0xffce6a, 13, 44, 2);
 lamp.castShadow = true;
 lamp.shadow.mapSize.set(1024, 1024);
 diya.add(lamp);
@@ -306,11 +367,10 @@ scene.add(motes);
 // ---- interaction ----
 const prompt = document.getElementById("prompt3d");
 function nearestOpenableTablet() {
-  const cur = currentIndex();
+  // free exploration: any page the lamp reaches can be opened
   let best = null;
   let bestD = 999;
   for (const t of tablets) {
-    if (t.userData.i > cur) continue; // locked
     const d = Math.abs(t.userData.i - heroP) + Math.abs(t.position.x - strafe) * 0.15;
     if (d < bestD) { bestD = d; best = t; }
   }
@@ -413,10 +473,10 @@ addEventListener("keyup", (e) => (keys[e.key.toLowerCase()] = false));
 
 // ---- camera orbit (drag to rotate) + preset angles (V) ----
 let camYaw = 0;
-let camPitch = 0.34;
-const CAM_DIST = 9.5;
+let camPitch = 0.44;
+const CAM_DIST = 11;
 const PRESETS = [
-  { yaw: 0, pitch: 0.34 },      // behind
+  { yaw: 0, pitch: 0.44 },      // behind
   { yaw: 0.7, pitch: 0.28 },    // over-shoulder
   { yaw: 0, pitch: 0.85 },      // high looking down the well
   { yaw: Math.PI * 0.42, pitch: 0.22 }, // side profile
@@ -455,7 +515,7 @@ renderer.domElement.addEventListener("pointerup", (e) => {
   if (hits.length) {
     let g = hits[0].object;
     while (g && !g.userData.stop) g = g.parent;
-    if (g && g.userData.i <= currentIndex()) { jumpToStop(g.userData.i); openStop(g.userData.stop); }
+    if (g && g.userData.stop) { jumpToStop(g.userData.i); openStop(g.userData.stop); }
   }
 });
 
@@ -513,7 +573,7 @@ function animate() {
   armL.rotation.x = Math.sin(t * rate) * (moving ? 0.4 : 0.12);
   armR.rotation.x = -0.5 + Math.sin(t * rate) * 0.1; // right arm holds the torch out
   hero.rotation.y += ((strafe > 0.3 ? -0.18 : strafe < -0.3 ? 0.18 : 0) - hero.rotation.y) * 0.1;
-  lamp.intensity = 9 + Math.sin(t * 12) * 1.6;
+  lamp.intensity = 13 + Math.sin(t * 12) * 1.8;
   diyaGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.18);
   // mouth moves while the Sutradhar speaks
   const talk = isSpeaking();
@@ -530,38 +590,29 @@ function animate() {
   scene.fog.color.copy(fogC);
   scene.background.copy(fogC);
 
-  // pages hide in the dark and are REVEALED by the torch as you approach
-  const REVEAL = 12;
-  const cur = currentIndex();
+  // every page hides in the dark and is REVEALED by the torch as you near it;
+  // read ones stay softly lit (silver-green), unread ones glow warm gold
+  const REVEAL = 13;
   for (const tb of tablets) {
-    const s = tb.userData.stop;
-    const done = isDone(s);
-    const locked = tb.userData.i > cur;
+    const done = isDone(tb.userData.stop);
     tb.position.y = tb.userData.baseY + Math.sin(t * 1.4 + tb.userData.i) * 0.2;
-    tb.rotation.y = Math.sin(t * 0.5 + tb.userData.i) * 0.35;
+    tb.rotation.y = Math.sin(t * 0.5 + tb.userData.i) * 0.3;
     const d = tb.position.distanceTo(hero.position);
-    const prox = Math.max(0, Math.min(1, 1 - d / REVEAL)); // 1 = at the lamp
+    const prox = Math.max(0, Math.min(1, 1 - d / REVEAL)); // 1 = right at the lamp
     const em = tb.userData.frame.material;
     const pem = tb.userData.panel.material;
-    if (locked) {
-      // a locked page barely catches the light — a hint in the dark
-      em.color.setHex(0x243330); pem.color.setHex(0x1e2a27);
-      em.emissive.setHex(0x14201c); pem.emissive.setHex(0x14201c);
-      em.emissiveIntensity = 0.15 * prox; pem.emissiveIntensity = 0.15 * prox;
-      tb.userData.halo.material.opacity = 0;
-    } else if (done) {
-      em.color.setHex(0xc9a24b); pem.color.setHex(0xf4ece0);
+    em.color.setHex(0xc9a24b);
+    pem.color.setHex(0xf4ece0);
+    if (done) {
       em.emissive.setHex(0x2a4a2f); pem.emissive.setHex(0x203a2a);
-      em.emissiveIntensity = 0.4 * prox; pem.emissiveIntensity = 0.35 * prox;
-      tb.userData.halo.material.opacity = 0.04 * prox;
+      em.emissiveIntensity = 0.5 * prox; pem.emissiveIntensity = 0.45 * prox;
+      tb.userData.halo.material.opacity = 0.05 * prox;
     } else {
-      // the current page: glows into life as the lamp nears it
-      const pulse = 0.5 + 0.5 * Math.sin(t * 3);
-      em.color.setHex(0xc9a24b); pem.color.setHex(0xf4ece0);
+      const pulse = 0.55 + 0.45 * Math.sin(t * 3 + tb.userData.i);
       em.emissive.setHex(0x8a6a1f); pem.emissive.setHex(0x6f6a2a);
-      em.emissiveIntensity = (0.4 + pulse * 0.9) * Math.max(0.12, prox);
-      pem.emissiveIntensity = (0.35 + pulse * 0.8) * Math.max(0.12, prox);
-      tb.userData.halo.material.opacity = (0.05 + pulse * 0.08) * Math.max(0.1, prox);
+      em.emissiveIntensity = (0.35 + pulse * 0.9) * prox;
+      pem.emissiveIntensity = (0.3 + pulse * 0.8) * prox;
+      tb.userData.halo.material.opacity = (0.04 + pulse * 0.08) * prox;
     }
   }
 
@@ -577,11 +628,11 @@ function animate() {
   // orbit camera: spherical offset around the hero from yaw/pitch
   const cp = Math.max(0.08, Math.min(1.15, camPitch));
   const ox = Math.sin(camYaw) * Math.cos(cp) * CAM_DIST;
-  const oy = Math.sin(cp) * CAM_DIST + 1.6;
+  const oy = Math.sin(cp) * CAM_DIST + 3.4; // higher so steps don't occlude
   const oz = -Math.cos(camYaw) * Math.cos(cp) * CAM_DIST;
   const desired = new THREE.Vector3(hero.position.x + ox, hero.position.y + oy, hero.position.z + oz);
   camera.position.lerp(desired, 0.1);
-  camera.lookAt(hero.position.x, hero.position.y + 2.4, hero.position.z + 3);
+  camera.lookAt(hero.position.x, hero.position.y + 1.8, hero.position.z + 5);
 
   // proximity prompt
   if (!overlay) {
