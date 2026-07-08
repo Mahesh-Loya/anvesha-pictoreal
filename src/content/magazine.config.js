@@ -1,41 +1,35 @@
 export const magazine = {
-  title: "Anvesha — The Stepwell of Anvesha",
+  title: "Pictoreal · Volume 28",
 
+  // The Sutradhar — the "holder of the thread" — narrates the journey.
   sutradhar: {
-    closingComplete: "Every fragment surfaced becomes the whole.\nWhat was hidden, you have made visible.",
-    closingIncomplete: "There is more to seek above.",
+    welcome: [
+      "I am the Sutradhar — the one who holds the thread of every tale.",
+      "Welcome, traveller, to Pictoreal, Volume Twenty-Eight.",
+      "The eye on our seal sees what others pass by. Tonight, so shall you.",
+      "Follow the thread of light. Each glowing stop hides a page to uncover.",
+    ],
+    closingComplete:
+      "Every page uncovered, every thread rejoined.\nWhat was scattered now forms one whole. This is Pictoreal.",
+    closingIncomplete: "Pages still wait in the dark. Return, and keep seeking.",
   },
 
+  // The assembled artwork (2 x 4 = 8 fragments -> 8 readable pages).
   fragments: {
     image: "/art/final-artwork.svg",
-    rows: 1,
-    cols: 5,
+    rows: 2,
+    cols: 4,
   },
 
+  // Each "tier" is a magazine SECTION containing pages. The journey map lays
+  // every page out as a stop along the descent, grouped by section.
   tiers: [
     {
-      id: "surface",
-      name: "The Surface",
+      id: "introduction",
+      name: "Introduction",
       section: "Introduction",
-      depth: 0,
-      light: 1.0,
+      intro: "Every volume begins with a single held breath. Let us begin.",
       palette: { wall: "#1a5c50", bg: "#0d3b33" },
-      map: [
-        "########################",
-        "#......................#",
-        "#......S.......C.......#",
-        "#..........p...........#",
-        "#.....................>#",
-        "########################",
-      ],
-      npc: {
-        id: "custodian",
-        lines: [
-          "Welcome, seeker.",
-          "What everyone sees is only the surface.",
-          "The true stories of Anvesha lie below. Descend, and uncover them.",
-        ],
-      },
       pages: [
         {
           id: "p01",
@@ -50,23 +44,10 @@ export const magazine = {
     },
     {
       id: "folk-arts",
-      name: "Folk Arts Gallery",
+      name: "Folk & Tribal Arts",
       section: "Folk & Tribal Arts",
-      depth: 1,
-      light: 0.4,
-      palette: { wall: "#124842", bg: "#0a2c26" },
-      map: [
-        "########################",
-        "#<S...p.......p........#",
-        "#......................#",
-        "#...C.......h........p.#",
-        "#.....................>#",
-        "########################",
-      ],
-      npc: {
-        id: "patua",
-        lines: ["These scrolls once told whole epics, panel by panel."],
-      },
+      intro: "Here the walls speak in dots and lines — the oldest hands of India.",
+      palette: { wall: "#175048", bg: "#0c332e" },
       pages: [
         {
           id: "p02",
@@ -95,14 +76,59 @@ export const magazine = {
           archiveUrl: null,
           fragmentId: "f04",
         },
+      ],
+    },
+    {
+      id: "language",
+      name: "Language & Oral Tradition",
+      section: "Language & Oral Tradition",
+      intro: "Some tongues are fading to silence. Listen closely while they remain.",
+      palette: { wall: "#134842", bg: "#0a2c27" },
+      pages: [
         {
           id: "p05",
-          title: "Chittara: Walls as Canvas",
+          title: "The Dying Dialects",
           surfaceImage: "/pages/p05-surface.svg",
           hiddenImage: null,
-          caption: "Karnataka",
+          caption: "Voices at the edge",
           archiveUrl: null,
           fragmentId: "f05",
+        },
+        {
+          id: "p06",
+          title: "Grandmother's Folk Tales",
+          surfaceImage: "/pages/p06-surface.svg",
+          hiddenImage: "/pages/p06-hidden.svg",
+          caption: "Oral traditions",
+          archiveUrl: null,
+          fragmentId: "f06",
+        },
+      ],
+    },
+    {
+      id: "architecture",
+      name: "Hidden Architecture",
+      section: "Hidden Architecture",
+      intro: "The deepest marvels were built downward, into the earth. Descend.",
+      palette: { wall: "#0f3d38", bg: "#08231f" },
+      pages: [
+        {
+          id: "p07",
+          title: "Stepwells: Cathedrals of Water",
+          surfaceImage: "/pages/p07-surface.svg",
+          hiddenImage: "/pages/p07-hidden.svg",
+          caption: "Gujarat & Rajasthan",
+          archiveUrl: null,
+          fragmentId: "f07",
+        },
+        {
+          id: "p08",
+          title: "Regional Crafts, Unsigned",
+          surfaceImage: "/pages/p08-surface.svg",
+          hiddenImage: null,
+          caption: "The unnamed makers",
+          archiveUrl: null,
+          fragmentId: "f08",
         },
       ],
     },

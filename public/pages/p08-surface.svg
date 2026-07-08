@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="640" viewBox="0 0 480 640">
+  <rect width="480" height="640" fill="#0f3d38" />
+  <circle cx="444" cy="212" r="6" fill="#C9A24B" />
+  <polygon points="17,241 31,241 24,227" fill="#2A1F14" />
+  <rect x="70" y="270" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="123" cy="299" r="6" fill="#C9A24B" />
+  <polygon points="176,328 190,328 183,314" fill="#2A1F14" />
+  <rect x="229" y="357" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="282" cy="386" r="6" fill="#C9A24B" />
+  <polygon points="335,415 349,415 342,401" fill="#2A1F14" />
+  <rect x="388" y="444" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="441" cy="473" r="6" fill="#C9A24B" />
+  <polygon points="14,502 28,502 21,488" fill="#2A1F14" />
+  <rect x="67" y="531" width="10" height="10" fill="#F6E7D2" />
+  <text x="240" y="600" font-family="Georgia, serif" font-size="20" fill="#F6E7D2" text-anchor="middle">Regional Crafts, Unsigned</text>
+</svg>

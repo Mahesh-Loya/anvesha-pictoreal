@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="640" viewBox="0 0 480 640">
+  <rect width="480" height="640" fill="#0f3d38" />
+  <circle cx="370" cy="70" r="6" fill="#C9A24B" />
+  <polygon points="423,99 437,99 430,85" fill="#2A1F14" />
+  <rect x="476" y="128" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="49" cy="157" r="6" fill="#C9A24B" />
+  <polygon points="102,186 116,186 109,172" fill="#2A1F14" />
+  <rect x="155" y="215" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="208" cy="244" r="6" fill="#C9A24B" />
+  <polygon points="261,273 275,273 268,259" fill="#2A1F14" />
+  <rect x="314" y="302" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="367" cy="331" r="6" fill="#C9A24B" />
+  <polygon points="420,360 434,360 427,346" fill="#2A1F14" />
+  <rect x="473" y="389" width="10" height="10" fill="#F6E7D2" />
+  <text x="240" y="600" font-family="Georgia, serif" font-size="20" fill="#F6E7D2" text-anchor="middle">Stepwells: Cathedrals of Water</text>
+</svg>

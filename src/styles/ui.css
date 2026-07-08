@@ -325,3 +325,182 @@
   background: radial-gradient(circle, var(--diya-gold) 0%, transparent 70%);
   pointer-events: none;
 }
+
+/* ---- Sutradhar narration box ---- */
+#narration-root {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: none;
+  justify-content: center;
+  padding: 20px;
+  pointer-events: none;
+  z-index: 22;
+}
+#narration-root.visible { display: flex; }
+.narration-box {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--overlay-dark);
+  border-radius: 10px;
+  padding: 14px 20px 16px 16px;
+  max-width: 640px;
+  color: var(--archival-ivory);
+  pointer-events: auto;
+}
+.narr-portrait { width: 56px; height: 56px; flex: 0 0 auto; }
+.narr-body { flex: 1; }
+.narr-name {
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--diya-gold);
+  margin-bottom: 4px;
+}
+.narr-line {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  line-height: 1.35;
+}
+.narr-hint {
+  align-self: flex-end;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  color: var(--silver-dim);
+  white-space: nowrap;
+}
+
+/* ---- Index / table of contents ---- */
+#contents-root {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-dark);
+  z-index: 26;
+}
+#contents-root.visible { display: flex; }
+.contents-card {
+  position: relative;
+  width: min(92vw, 560px);
+  max-height: 82vh;
+  background: var(--teal-dark);
+  border-radius: 8px;
+  padding: 20px 20px 16px;
+  display: flex;
+  flex-direction: column;
+}
+.contents-head {
+  text-align: center;
+  font-family: Georgia, serif;
+  font-size: 18px;
+  color: var(--diya-gold);
+  margin-bottom: 12px;
+}
+.contents-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--ink);
+  color: var(--archival-ivory);
+  font-size: 18px;
+  cursor: pointer;
+}
+.contents-scroll { overflow-y: auto; padding-right: 6px; }
+.toc-section { margin-bottom: 14px; }
+.toc-section-name {
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--silver-dim);
+  border-bottom: 1px solid rgba(223, 230, 226, 0.15);
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+.toc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--archival-ivory);
+  font-family: Georgia, serif;
+  font-size: 15px;
+  cursor: pointer;
+}
+.toc-row:not(.locked):hover { background: rgba(223, 230, 226, 0.08); border-color: var(--linework-gold); }
+.toc-row.locked { color: var(--silver-dim); cursor: default; opacity: 0.6; }
+.toc-row.current { border-color: var(--diya-gold); }
+.toc-mark { width: 16px; color: var(--diya-gold); }
+.toc-row.locked .toc-mark { color: var(--silver-dim); }
+.toc-title { flex: 1; }
+.toc-cap {
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  color: var(--silver-dim);
+}
+
+/* 3D proximity prompt */
+#prompt3d {
+  position: fixed;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  color: var(--archival-ivory);
+  font-family: Georgia, serif;
+  font-size: 16px;
+  background: var(--overlay-dark);
+  border: 1px solid var(--linework-gold);
+  border-radius: 20px;
+  padding: 8px 18px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 12;
+}
+#three-root canvas { display: block; }
+
+/* 3D opening splash with the brand logo */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: #051310;
+  transition: opacity 0.8s;
+}
+#splash.gone { opacity: 0; pointer-events: none; }
+#splash img {
+  width: min(58vh, 60vw);
+  max-width: 460px;
+  filter: drop-shadow(0 0 40px rgba(20, 120, 100, 0.4));
+  animation: splashFloat 4s ease-in-out infinite;
+}
+@keyframes splashFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-10px) scale(1.012); }
+}
+.splash-prompt {
+  color: var(--silver);
+  font-family: Georgia, serif;
+  font-size: 17px;
+  animation: splashPulse 2s ease-in-out infinite;
+}
+@keyframes splashPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }

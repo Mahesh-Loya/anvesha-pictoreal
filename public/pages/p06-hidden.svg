@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="640" viewBox="0 0 480 640">
+  <rect width="480" height="640" fill="#0a2c27" />
+  <circle cx="333" cy="639" r="6" fill="#C9A24B" />
+  <polygon points="386,28 400,28 393,14" fill="#2A1F14" />
+  <rect x="439" y="57" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="12" cy="86" r="6" fill="#C9A24B" />
+  <polygon points="65,115 79,115 72,101" fill="#2A1F14" />
+  <rect x="118" y="144" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="171" cy="173" r="6" fill="#C9A24B" />
+  <polygon points="224,202 238,202 231,188" fill="#2A1F14" />
+  <rect x="277" y="231" width="10" height="10" fill="#F6E7D2" />
+  <circle cx="330" cy="260" r="6" fill="#C9A24B" />
+  <polygon points="383,289 397,289 390,275" fill="#2A1F14" />
+  <rect x="436" y="318" width="10" height="10" fill="#F6E7D2" />
+  <text x="240" y="600" font-family="Georgia, serif" font-size="20" fill="#F6E7D2" text-anchor="middle">Grandmother's Folk Tales (hidden)</text>
+</svg>
