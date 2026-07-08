@@ -1,13 +1,21 @@
 :root {
-  --tier-surface: #E8C77A;
-  --tier-folk-arts: #D97A2B;
-  --tier-dialects: #B5482E;
-  --tier-library: #7A2230;
-  --tier-architecture: #34406B;
-  --tier-inner-depths: #243A33;
-  --linework-gold: #C9A24B;
-  --diya-gold: #FCDE5A;
-  --archival-ivory: #F6E7D2;
-  --ink: #2A1F14;
-  --overlay-dark: rgba(10, 8, 14, 0.92);
+  /* Pictoreal Volume 28 identity: deep teal + silver linework, warm diya gold */
+  --teal-deep: #0d3b33;
+  --teal-mid: #145047;
+  --teal-dark: #0a2c26;
+  --silver: #dfe6e2;
+  --silver-dim: #9fb3ac;
+  --linework-gold: #c9a24b;
+  --diya-gold: #fcde5a;
+  --archival-ivory: #f4ece0;
+  --ink: #0a2019;
+  --overlay-dark: rgba(8, 26, 22, 0.94);
+
+  /* tier accents in the teal family (deeper = further in the descent) */
+  --tier-surface: #1a5c50;
+  --tier-folk-arts: #14504a;
+  --tier-dialects: #124842;
+  --tier-library: #0f3d38;
+  --tier-architecture: #0c332f;
+  --tier-inner-depths: #0a2926;
 }

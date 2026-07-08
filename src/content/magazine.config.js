@@ -19,7 +19,7 @@ export const magazine = {
       section: "Introduction",
       depth: 0,
       light: 1.0,
-      palette: { wall: "#E8C77A", bg: "#2A3A5E" },
+      palette: { wall: "#1a5c50", bg: "#0d3b33" },
       map: [
         "########################",
         "#......................#",
@@ -54,7 +54,7 @@ export const magazine = {
       section: "Folk & Tribal Arts",
       depth: 1,
       light: 0.4,
-      palette: { wall: "#D97A2B", bg: "#241A2E" },
+      palette: { wall: "#124842", bg: "#0a2c26" },
       map: [
         "########################",
         "#<S...p.......p........#",

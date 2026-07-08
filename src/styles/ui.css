@@ -24,7 +24,7 @@
   border: 16px solid transparent;
   border-image-slice: 16;
   border-image-repeat: round;
-  border-image-source: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><rect width='32' height='32' fill='%237A2230'/><rect x='4' y='4' width='24' height='24' fill='none' stroke='%23C9A24B' stroke-width='2'/><circle cx='16' cy='16' r='4' fill='%23FCDE5A'/><circle cx='4' cy='4' r='2.5' fill='%23C9A24B'/><circle cx='28' cy='4' r='2.5' fill='%23C9A24B'/><circle cx='4' cy='28' r='2.5' fill='%23C9A24B'/><circle cx='28' cy='28' r='2.5' fill='%23C9A24B'/></svg>");
+  border-image-source: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><rect width='32' height='32' fill='%230a2c26'/><rect x='4' y='4' width='24' height='24' fill='none' stroke='%23dfe6e2' stroke-width='1.5'/><circle cx='16' cy='16' r='4' fill='none' stroke='%23dfe6e2' stroke-width='1.5'/><circle cx='16' cy='16' r='1.5' fill='%23fcde5a'/><circle cx='4' cy='4' r='2.5' fill='%23dfe6e2'/><circle cx='28' cy='4' r='2.5' fill='%23dfe6e2'/><circle cx='4' cy='28' r='2.5' fill='%23dfe6e2'/><circle cx='28' cy='28' r='2.5' fill='%23dfe6e2'/></svg>");
 }
 
 #lantern-overlay {
