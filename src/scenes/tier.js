@@ -2,7 +2,8 @@ import gsap from "gsap";
 import { magazine } from "../content/magazine.config.js";
 import { state } from "../state.js";
 import { buildLevel } from "../systems/level.js";
-import { spawnSeeker } from "../entities/seeker.js";
+import { spawnSutradhar } from "../entities/sutradhar.js";
+import { setupAmbiance } from "../systems/ambiance.js";
 import { spawnNpc } from "../entities/npc.js";
 import { openDialogue, advanceDialogue, closeDialogue, isDialogueOpen } from "../ui/dialogue.js";
 import { openReader, closeReader, isReaderOpen } from "../ui/reader.js";
@@ -29,16 +30,18 @@ export function registerTierScene() {
       rect(width() * 4, height() * 4),
       pos(-width(), -height()),
       color(...hexToRgb(tierConfig.palette.bg)),
+      z(-100),
     ]);
 
     const { seekerSpawn, npcSpawn } = buildLevel(tierConfig);
     if (!seekerSpawn) {
       throw new Error(`Tier "${tierId}" map has no "S" Seeker spawn tile`);
     }
-    const seeker = spawnSeeker(seekerSpawn.x, seekerSpawn.y);
+    const seeker = spawnSutradhar(seekerSpawn.x, seekerSpawn.y);
 
     const npc = npcSpawn ? spawnNpc(npcSpawn.x, npcSpawn.y) : null;
 
+    setupAmbiance(seeker, tierConfig);
     setupLantern(seeker, tierConfig);
 
     mountHud();
@@ -75,8 +78,10 @@ export function registerTierScene() {
       if (isDialogueOpen()) closeDialogue();
     });
 
+    // Smooth camera follow (gentle lerp toward the Sutradhar).
+    setCamPos(seeker.pos);
     seeker.onUpdate(() => {
-      setCamPos(seeker.pos);
+      setCamPos(getCamPos().lerp(seeker.pos, 0.12));
     });
 
     seeker.onCollide("stairs-down", () => {

@@ -1,5 +1,32 @@
 /* populated starting Task 8 */
 
+/* Subtle permanent vignette so the world edges fall into shadow and the
+   center reads as lit. Sits just above the canvas, below all UI. */
+#vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 75% 75% at 50% 45%,
+    rgba(0, 0, 0, 0) 55%,
+    rgba(10, 8, 14, 0.55) 100%
+  );
+}
+
+/* Decorative folk-art frame around the whole screen — makes the play area
+   feel like an illuminated manuscript page. Above the world, below UI panels. */
+#ornament-frame {
+  position: fixed;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  border: 16px solid transparent;
+  border-image-slice: 16;
+  border-image-repeat: round;
+  border-image-source: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><rect width='32' height='32' fill='%237A2230'/><rect x='4' y='4' width='24' height='24' fill='none' stroke='%23C9A24B' stroke-width='2'/><circle cx='16' cy='16' r='4' fill='%23FCDE5A'/><circle cx='4' cy='4' r='2.5' fill='%23C9A24B'/><circle cx='28' cy='4' r='2.5' fill='%23C9A24B'/><circle cx='4' cy='28' r='2.5' fill='%23C9A24B'/><circle cx='28' cy='28' r='2.5' fill='%23C9A24B'/></svg>");
+}
+
 #lantern-overlay {
   position: fixed;
   inset: 0;
