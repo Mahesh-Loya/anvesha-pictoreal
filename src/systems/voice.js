@@ -49,3 +49,7 @@ export function toggleVoice() {
 export function isVoiceEnabled() {
   return state.voiceEnabled;
 }
+
+export function isSpeaking() {
+  return !!synth && synth.speaking;
+}

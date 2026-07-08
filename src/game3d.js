@@ -6,13 +6,14 @@ import gsap from "gsap";
 import { magazine } from "./content/magazine.config.js";
 import { state } from "./state.js";
 import { surfaceFragment, isJourneyComplete, getSurfacedCount } from "./systems/fragments.js";
-import { playFragmentChime } from "./systems/audio.js";
+import { playFragmentChime, playFootstep, startAmbientMusic } from "./systems/audio.js";
 import { openReader, isReaderOpen, closeReader } from "./ui/reader.js";
 import { openJournal, isJournalOpen, closeJournal } from "./ui/journal.js";
 import { openContents, isContentsOpen, closeContents, setJumpHandler } from "./ui/contents.js";
 import { narrate, advanceNarration, isNarrating } from "./ui/narration.js";
 import { mountHud, updateHudCount, getHudJournalButtonRect } from "./ui/hud.js";
 import { isAnyOverlayOpen } from "./ui/overlays.js";
+import { isSpeaking } from "./systems/voice.js";
 
 // ---------------------------------------------------------------------------
 // Pictoreal · Volume 28 — a 3D descent through a stepwell. Each magazine page
@@ -56,11 +57,13 @@ composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.85, 0.7, 0.8);
 composer.addPass(bloom);
 
-const ambient = new THREE.AmbientLight(0x2a6b5f, 0.55);
+// Dark world: only a whisper of fill so the Sutradhar's torch is the light
+// that reveals the space and the hidden pages as you move.
+const ambient = new THREE.AmbientLight(0x1a4a42, 0.14);
 scene.add(ambient);
-const hemi = new THREE.HemisphereLight(0x1f6456, 0x06201b, 0.5);
+const hemi = new THREE.HemisphereLight(0x1a5044, 0x040f0c, 0.16);
 scene.add(hemi);
-const rim = new THREE.DirectionalLight(0x8fd8c8, 0.4);
+const rim = new THREE.DirectionalLight(0x8fd8c8, 0.1);
 rim.position.set(-10, 20, 8);
 scene.add(rim);
 
@@ -143,77 +146,115 @@ const bottom = pathAt(STOPS.length + 0.5);
 water.position.set(0, bottom.y - 2, bottom.z);
 scene.add(water);
 
-// ---- the Sutradhar ----
+// ---- the Sutradhar (cartoon proportions: big head, expressive face,
+// holding a torch that is the only real light in the dark) ----
+const SKIN = new THREE.MeshStandardMaterial({ color: 0xe6b98a, roughness: 0.6 });
+const ROBE_MAT = new THREE.MeshStandardMaterial({ color: 0xd97a2b, roughness: 0.7 });
 const hero = new THREE.Group();
-const robe = new THREE.Mesh(new THREE.ConeGeometry(1.1, 3, 12), new THREE.MeshStandardMaterial({ color: 0xd97a2b, roughness: 0.7 }));
-robe.position.y = 1.5;
+
+// rounded little body
+const robe = new THREE.Mesh(new THREE.ConeGeometry(0.95, 2.0, 16), ROBE_MAT);
+robe.position.y = 1.0;
 robe.castShadow = true;
 hero.add(robe);
-const sash = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.14, 8, 16), new THREE.MeshStandardMaterial({ color: 0x7a2230 }));
-sash.position.y = 2.1;
+const sash = new THREE.Mesh(new THREE.TorusGeometry(0.66, 0.13, 8, 20), new THREE.MeshStandardMaterial({ color: 0x7a2230 }));
+sash.position.y = 1.65;
 sash.rotation.x = Math.PI / 2;
 hero.add(sash);
-// head + face grouped so they bob together (face is on the -Z side, toward
-// the camera — the Sutradhar looks at the seeker like a guide)
+
+// head + face grouped so they bob together; face is on the -Z side (toward
+// the camera) so the Sutradhar looks at the seeker like a guide
 const headGroup = new THREE.Group();
 hero.add(headGroup);
-const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), new THREE.MeshStandardMaterial({ color: 0xe0b280, roughness: 0.6 }));
-head.position.y = 3.3;
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.82, 20, 20), SKIN);
+head.position.y = 2.7;
+head.scale.set(1, 0.95, 0.95);
 head.castShadow = true;
 headGroup.add(head);
-const turban = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x145047 }));
-turban.position.y = 3.55;
+// ears
+for (const ex of [-0.8, 0.8]) {
+  const ear = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), SKIN);
+  ear.position.set(ex, 2.62, 0);
+  headGroup.add(ear);
+}
+// turban with a glowing jewel
+const turban = new THREE.Mesh(new THREE.SphereGeometry(0.9, 20, 14, 0, Math.PI * 2, 0, Math.PI / 1.7), new THREE.MeshStandardMaterial({ color: 0x145047, roughness: 0.7 }));
+turban.position.y = 3.02;
+turban.scale.set(1.05, 0.9, 1.05);
 headGroup.add(turban);
-const jewel = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xfcde5a, emissiveIntensity: 1.5 }));
-jewel.position.set(0, 3.9, -0.42);
+const jewel = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xfcde5a, emissiveIntensity: 1.6 }));
+jewel.position.set(0, 3.2, -0.6);
 headGroup.add(jewel);
-const eyeWhite = new THREE.MeshStandardMaterial({ color: 0xf4ece0, roughness: 0.4 });
-const eyeDark = new THREE.MeshStandardMaterial({ color: 0x14201c, roughness: 0.3 });
+
+// big expressive eyes
+const eyeWhite = new THREE.MeshStandardMaterial({ color: 0xf7f2ea, roughness: 0.35 });
+const eyeDark = new THREE.MeshStandardMaterial({ color: 0x1a2420, roughness: 0.25 });
 const browMat = new THREE.MeshStandardMaterial({ color: 0x2a1f14 });
-for (const ex of [-0.18, 0.18]) {
-  const white = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 12), eyeWhite);
-  white.position.set(ex, 3.34, -0.44);
-  white.scale.set(1, 1.25, 0.6);
+for (const ex of [-0.3, 0.3]) {
+  const white = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), eyeWhite);
+  white.position.set(ex, 2.78, -0.6);
+  white.scale.set(0.85, 1.1, 0.6);
   headGroup.add(white);
-  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), eyeDark);
-  pupil.position.set(ex, 3.34, -0.52);
+  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), eyeDark);
+  pupil.position.set(ex, 2.75, -0.74);
   headGroup.add(pupil);
-  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.05, 0.06), browMat);
-  brow.position.set(ex, 3.52, -0.48);
+  const shine = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  shine.position.set(ex + 0.04, 2.8, -0.82);
+  headGroup.add(shine);
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.08), browMat);
+  brow.position.set(ex, 3.05, -0.66);
+  brow.rotation.z = ex < 0 ? 0.12 : -0.12;
   headGroup.add(brow);
 }
-const nose = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 8), new THREE.MeshStandardMaterial({ color: 0xcf9f6f }));
-nose.position.set(0, 3.2, -0.5);
-nose.rotation.x = -Math.PI / 2;
+// nose + rosy cheeks + mouth (mouth scales open while speaking)
+const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 10), SKIN);
+nose.position.set(0, 2.62, -0.82);
 headGroup.add(nose);
-// the third eye — the Anvesha seeing-eye, glowing gold on the brow
-const tilak = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xfcde5a, emissiveIntensity: 2 }));
-tilak.position.set(0, 3.62, -0.46);
+for (const ex of [-0.46, 0.46]) {
+  const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), new THREE.MeshStandardMaterial({ color: 0xe08a6a, roughness: 0.7 }));
+  cheek.position.set(ex, 2.5, -0.66);
+  cheek.scale.set(1, 0.7, 0.4);
+  headGroup.add(cheek);
+}
+const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 12), new THREE.MeshStandardMaterial({ color: 0x5a2530, roughness: 0.5 }));
+mouth.position.set(0, 2.34, -0.72);
+mouth.scale.set(1.5, 0.35, 0.4);
+headGroup.add(mouth);
+// the third eye — the Anvesha seeing-eye, glowing gold between the brows
+const tilak = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xfcde5a, emissiveIntensity: 2 }));
+tilak.position.set(0, 3.02, -0.68);
 tilak.scale.set(0.7, 1.3, 0.5);
 headGroup.add(tilak);
-// arms (pivot at the shoulder so they can swing)
-const armMat = new THREE.MeshStandardMaterial({ color: 0xd97a2b, roughness: 0.7 });
-const armGeo = new THREE.CylinderGeometry(0.16, 0.14, 1.4, 8);
-armGeo.translate(0, -0.7, 0); // pivot at top
+
+// arms (pivot at shoulder)
+const armGeo = new THREE.CylinderGeometry(0.14, 0.12, 1.1, 8);
+armGeo.translate(0, -0.55, 0);
 const armL = new THREE.Group();
-armL.position.set(-0.7, 2.7, 0);
-const armLmesh = new THREE.Mesh(armGeo, armMat);
-armL.add(armLmesh);
+armL.position.set(-0.62, 1.85, 0);
+armL.add(new THREE.Mesh(armGeo, ROBE_MAT));
 hero.add(armL);
-const armR = new THREE.Group(); // holds the diya
-armR.position.set(0.7, 2.7, 0.2);
-const armRmesh = new THREE.Mesh(armGeo, armMat);
-armR.add(armRmesh);
+const armR = new THREE.Group(); // holds the torch
+armR.position.set(0.62, 1.85, -0.1);
+armR.add(new THREE.Mesh(armGeo, ROBE_MAT));
 hero.add(armR);
-const diya = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 12), new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffcf5a, emissiveIntensity: 3 }));
-diya.position.set(0.15, -1.5, 0.35);
+
+// the torch: a handle + a bright flame that is the light source
+const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.8, 8), new THREE.MeshStandardMaterial({ color: 0x4a2f18 }));
+handle.position.set(0.05, -1.0, 0.1);
+armR.add(handle);
+const diya = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.5, 10), new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffcf5a, emissiveIntensity: 3.2 }));
+diya.position.set(0.05, -1.5, 0.1);
 armR.add(diya);
-const diyaGlow = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.25 }));
+const diyaGlow = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.3 }));
 diya.add(diyaGlow);
-const lamp = new THREE.PointLight(0xffcf6a, 7, 30, 2);
+const lamp = new THREE.PointLight(0xffce6a, 9, 34, 2);
 lamp.castShadow = true;
 lamp.shadow.mapSize.set(1024, 1024);
 diya.add(lamp);
+// a soft warm light that keeps the Sutradhar's face readable in the dark
+const faceLight = new THREE.PointLight(0xffdca6, 2.4, 8, 2);
+faceLight.position.set(0, 2.7, -1.5);
+hero.add(faceLight);
 scene.add(hero);
 
 // hero moves along the path parameter `heroP` plus a sideways strafe
@@ -332,6 +373,7 @@ function begin() {
   if (started) return;
   started = true;
   splash.classList.add("gone");
+  startAmbientMusic();
   if (getSurfacedCount() === 0) setTimeout(() => narrate(magazine.sutradhar.welcome), 300);
 }
 splash.addEventListener("click", begin);
@@ -440,6 +482,7 @@ function checkComplete() {
 
 // ---- loop ----
 const clock = new THREE.Clock();
+let nextStep = 0;
 function animate() {
   const t = clock.getElapsedTime();
   const overlay = isAnyOverlayOpen() || !started;
@@ -462,30 +505,33 @@ function animate() {
 
   // gentle float bob + subtle gesture; the Sutradhar keeps facing the seeker
   const moving = !overlay && (keys["arrowdown"] || keys["s"] || keys["arrowup"] || keys["w"] || keys["arrowleft"] || keys["a"] || keys["arrowright"] || keys["d"]);
+  if (moving && t > nextStep) { playFootstep(); nextStep = t + 0.34; }
   const rate = moving ? 6 : 2;
   const bob = Math.abs(Math.sin(t * rate)) * (moving ? 0.12 : 0.05);
-  robe.position.y = 1.5 + bob;
+  robe.position.y = 1.0 + bob;
   headGroup.position.y = bob;
   armL.rotation.x = Math.sin(t * rate) * (moving ? 0.4 : 0.12);
-  armR.rotation.x = -0.5 + Math.sin(t * rate) * 0.1; // right arm holds the lamp out
-  // face the seeker, tilting slightly toward the way you step
+  armR.rotation.x = -0.5 + Math.sin(t * rate) * 0.1; // right arm holds the torch out
   hero.rotation.y += ((strafe > 0.3 ? -0.18 : strafe < -0.3 ? 0.18 : 0) - hero.rotation.y) * 0.1;
-  lamp.intensity = 7 + Math.sin(t * 12) * 1.3;
-  diyaGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.15);
+  lamp.intensity = 9 + Math.sin(t * 12) * 1.6;
+  diyaGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.18);
+  // mouth moves while the Sutradhar speaks
+  const talk = isSpeaking();
+  mouth.scale.y = talk ? 0.35 + Math.abs(Math.sin(t * 18)) * 0.9 : 0.35;
 
   // lantern flicker (bloom makes these read as real flame)
   for (const l of lanterns) {
     l.mesh.material.emissiveIntensity = 1.8 + Math.sin(t * 8 + l.phase) * 0.5 + Math.sin(t * 23 + l.phase) * 0.2;
   }
 
-  // per-section mood: fog + ambient deepen as you descend
+  // per-section mood: fog deepens as you descend (kept dark for the reveal)
   const depth = heroP / Math.max(1, STOPS.length - 1);
-  const fogC = new THREE.Color(0x0d3b33).lerp(new THREE.Color(0x07231e), depth);
+  const fogC = new THREE.Color(0x081f1b).lerp(new THREE.Color(0x040f0c), depth);
   scene.fog.color.copy(fogC);
   scene.background.copy(fogC);
-  ambient.intensity = 0.6 - depth * 0.18;
 
-  // tablets: state-driven glow + float
+  // pages hide in the dark and are REVEALED by the torch as you approach
+  const REVEAL = 12;
   const cur = currentIndex();
   for (const tb of tablets) {
     const s = tb.userData.stop;
@@ -493,11 +539,30 @@ function animate() {
     const locked = tb.userData.i > cur;
     tb.position.y = tb.userData.baseY + Math.sin(t * 1.4 + tb.userData.i) * 0.2;
     tb.rotation.y = Math.sin(t * 0.5 + tb.userData.i) * 0.35;
+    const d = tb.position.distanceTo(hero.position);
+    const prox = Math.max(0, Math.min(1, 1 - d / REVEAL)); // 1 = at the lamp
     const em = tb.userData.frame.material;
     const pem = tb.userData.panel.material;
-    if (locked) { em.emissive.setHex(0x0a2c26); em.emissiveIntensity = 1; pem.emissive.setHex(0x0a2c26); pem.emissiveIntensity = 1; tb.userData.halo.material.opacity = 0; tb.userData.frame.material.color.setHex(0x2a3f3a); pem.color.setHex(0x24332f); }
-    else if (done) { em.emissive.setHex(0x2a4a2f); em.emissiveIntensity = 0.5; pem.emissive.setHex(0x203a2a); pem.emissiveIntensity = 0.4; tb.userData.halo.material.opacity = 0.05; em.color.setHex(0xc9a24b); pem.color.setHex(0xf4ece0); }
-    else { const pulse = 0.5 + 0.5 * Math.sin(t * 3); em.emissive.setHex(0x8a6a1f); em.emissiveIntensity = 0.6 + pulse * 0.7; pem.emissive.setHex(0x6f6a2a); pem.emissiveIntensity = 0.5 + pulse * 0.6; tb.userData.halo.material.opacity = 0.06 + pulse * 0.06; em.color.setHex(0xc9a24b); pem.color.setHex(0xf4ece0); }
+    if (locked) {
+      // a locked page barely catches the light — a hint in the dark
+      em.color.setHex(0x243330); pem.color.setHex(0x1e2a27);
+      em.emissive.setHex(0x14201c); pem.emissive.setHex(0x14201c);
+      em.emissiveIntensity = 0.15 * prox; pem.emissiveIntensity = 0.15 * prox;
+      tb.userData.halo.material.opacity = 0;
+    } else if (done) {
+      em.color.setHex(0xc9a24b); pem.color.setHex(0xf4ece0);
+      em.emissive.setHex(0x2a4a2f); pem.emissive.setHex(0x203a2a);
+      em.emissiveIntensity = 0.4 * prox; pem.emissiveIntensity = 0.35 * prox;
+      tb.userData.halo.material.opacity = 0.04 * prox;
+    } else {
+      // the current page: glows into life as the lamp nears it
+      const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+      em.color.setHex(0xc9a24b); pem.color.setHex(0xf4ece0);
+      em.emissive.setHex(0x8a6a1f); pem.emissive.setHex(0x6f6a2a);
+      em.emissiveIntensity = (0.4 + pulse * 0.9) * Math.max(0.12, prox);
+      pem.emissiveIntensity = (0.35 + pulse * 0.8) * Math.max(0.12, prox);
+      tb.userData.halo.material.opacity = (0.05 + pulse * 0.08) * Math.max(0.1, prox);
+    }
   }
 
   // motes rise
