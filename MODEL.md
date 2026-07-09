@@ -5,24 +5,45 @@ box. If you drop a rigged 3D model at **`public/models/sutradhar.glb`**, the gam
 loads it automatically, hides the placeholder body, keeps the lamp + all logic,
 and plays the model's first animation clip if it has one. No code change needed.
 
-## How to get a `.glb` from your concept art
+## The source image
 
-You have 2D images, so use an **image-to-3D** generator, then export GLB:
+The canonical character art lives at **`reference/sutradhar-1200.png`** — the
+turbaned guide in the blue kurta, yellow churidar, leather satchel. Upload that
+to whichever generator you use below.
 
-1. **Generate the mesh** from your front-facing image (the standing pose works
-   best) with one of:
-   - **Meshy** — <https://www.meshy.ai> (Image to 3D; has auto-rig + walk/idle
-     animations, exports GLB). Easiest for a game-ready, animated character.
-   - **Tripo** — <https://www.tripo3d.ai> (Image to 3D, rigging, GLB export).
-   - **Rodin (Hyper3D)** — <https://hyper3d.ai>.
-   Upload the clearest full-body image, generate, then **rig** it and pick
-   **walk** + **idle** animations if the tool offers them.
-2. **Export as GLB** (binary glTF, embedded textures). Keep it reasonable —
-   under ~5–10 MB, textures ≤ 2K.
-3. Save it as `public/models/sutradhar.glb` and reload the game.
+## Easiest FREE way to get a `.glb`
 
-If your images are stylized/cartoon, the auto-generated mesh will be an
-approximation — Meshy's "cartoon"/"stylized" setting matches your art best.
+**Key point: you do NOT need a rigged or animated model.** A plain static mesh
+is enough — the game animates it in-engine (idle sway + walk bob), exactly like
+the built-in placeholder. That skips the hardest, most-broken step entirely.
+
+So the least-effort free path is a single image-to-3D generation:
+
+1. **Generate a static mesh** (free, in-browser, no credits — better than
+   Meshy's free tier) from `reference/sutradhar-1200.png`:
+   - **Hunyuan3D 2.0** — search "Hunyuan3D 2 huggingface space".
+   - **TRELLIS** — search "TRELLIS huggingface space".
+   Upload the image, generate, **download the `.glb`**.
+2. Save it as `public/models/sutradhar.glb` and reload. Done — I'll scale,
+   orient and animate it.
+
+Tip: the waving arm + held book in the art can confuse the generator (it likes
+a neutral standing pose). If the result looks off, it's fine — hand me the file
+anyway and we can iterate, or generate from a plainer standing crop.
+
+## If you want him to actually walk (also free, more steps)
+
+Take the mesh (or export FBX) → **Mixamo** (free Adobe account) → auto-rig →
+pick **idle** + **walk** animations → download FBX/GLB. Hand me the file and
+I'll convert (Blender/FBX→GLB) and wire idle/walk switching to movement.
+
+## Instant but generic (free)
+
+Grab any character straight from **Mixamo's** library — rigged + animated in
+one click. Won't match the turban/kurta art, but it drops in immediately.
+
+Whatever you get: keep it under ~5–10 MB, textures ≤ 2K, and save it as
+`public/models/sutradhar.glb`.
 
 ## Making it face + sit right
 
