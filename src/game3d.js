@@ -750,11 +750,13 @@ new GLTFLoader().load(
     const model = gltf.scene;
     const box = new THREE.Box3().setFromObject(model);
     const size = new THREE.Vector3(); box.getSize(size);
-    const s = 3.6 / (size.y || 1); // scale to ~3.6 units tall
+    const s = 4.2 / (size.y || 1); // scale to ~4.2 units tall
     model.scale.setScalar(s);
     const min = box.min.clone().multiplyScalar(s);
     const c = box.getCenter(new THREE.Vector3()).multiplyScalar(s);
-    model.position.set(-c.x, -min.y, -c.z); // feet on the floor, centred
+    // -0.2 cancels placeHero()'s hover (tuned for the primitive body) so the
+    // sandals actually touch the floor instead of floating
+    model.position.set(-c.x, -min.y - 0.2, -c.z);
     model.traverse((o) => {
       if (!o.isMesh) return;
       o.castShadow = true;
@@ -774,9 +776,9 @@ new GLTFLoader().load(
     // the face light lives on the (now hidden) primitive head — re-hang it on
     // the hero so the model's face and chest stay warmly readable
     hero.add(faceLight);
-    faceLight.position.set(0, 3.0, -1.5);
-    faceLight.intensity = 2.4;
-    faceLight.distance = 7;
+    faceLight.position.set(0, 3.6, -1.8);
+    faceLight.intensity = 1.6; // soft — enough to read the face, not bleach it
+    faceLight.distance = 8;
     if (gltf.animations?.length) {
       heroMixer = new THREE.AnimationMixer(model);
       heroMixer.clipAction(gltf.animations[0]).play();
@@ -1212,14 +1214,15 @@ function animate() {
     // reads as weight shifting between feet, and a faint breathing sway at rest.
     const stride = Math.sin(t * rate);
     if (moving) {
-      heroModel.position.y = heroModelBaseY + Math.abs(stride) * 0.22; // step hop
-      heroModel.rotation.x = 0.1 + Math.abs(stride) * 0.05;            // lean in
-      heroModel.rotation.z = stride * 0.085;                            // foot-to-foot roll
-      const squash = 1 - Math.abs(Math.cos(t * rate)) * 0.035;          // landing squash
+      // grounded stride: heels never leave the floor by more than a step's rise
+      heroModel.position.y = heroModelBaseY + Math.abs(stride) * 0.07;
+      heroModel.rotation.x = 0.04;                                      // slight lean in
+      heroModel.rotation.z = stride * 0.055;                            // foot-to-foot roll
+      const squash = 1 - Math.abs(Math.cos(t * rate)) * 0.02;           // landing squash
       heroModel.scale.y = heroModelScl * squash;
       heroModel.scale.x = heroModel.scale.z = heroModelScl * (2 - squash);
     } else {
-      heroModel.position.y = heroModelBaseY + bob * 0.5;
+      heroModel.position.y = heroModelBaseY + bob * 0.3;
       heroModel.rotation.x += (0 - heroModel.rotation.x) * 0.1;         // settle upright
       heroModel.rotation.z = Math.sin(t * 1.2) * 0.014;                 // breathing sway
       heroModel.scale.setScalar(heroModelScl);
