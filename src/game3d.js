@@ -156,10 +156,11 @@ const WALLH = 9; // cave wall height
 
 // ---- the cave network (organic graph of chambers + tunnels) ----
 const cave = generateCave();
+const HUBR = cave.nodes[0].r; // radius of the central hall
 const GATE_Z = cave.gateZ; // surface gate sits at the mouth of the entrance corridor
-const GAP = 12; // width of the entrance corridor opening
-const ENTRY_Y = 11; // surface height; the corridor ramps down to the cave floor (y=0)
-const RAMP_BOT = 15; // where the ramp meets the hub floor
+const GAP = 14; // width of the entrance ramp opening
+const ENTRY_Y = 11; // surface height; the ramp descends to the cave floor (y=0)
+const RAMP_BOT = HUBR; // the ramp meets the hall floor exactly at the hall edge
 const GY = ENTRY_Y;
 function groundHeightAt(z) {
   if (z >= GATE_Z) return ENTRY_Y;
@@ -393,34 +394,37 @@ const doorR = makeDoor(1);
 let gateOpen = false;
 let gateSwing = 0;
 
-// the covered stair descent: steps + side walls following the ramp down to the hub
-const NSTEPS = 30;
-for (let s = 0; s < NSTEPS; s++) {
-  const f = s / (NSTEPS - 1);
-  const z = GATE_Z - f * (GATE_Z - RAMP_BOT);
-  const y = GY - f * GY;
-  const step = new THREE.Mesh(new THREE.BoxGeometry(GAP + 1, 0.65, (GATE_Z - RAMP_BOT) / NSTEPS + 0.5), s % 2 ? stoneDark : stone);
-  step.position.set(0, y - 0.32, z); step.receiveShadow = true;
-  scene.add(step);
-}
-// side walls the whole way; a roof only over the UPPER descent so the tunnel
-// feels covered but the camera is never trapped under it when you reach the hub
+// a clean, smooth ramp down into the hall — no clutter, nothing to bump into.
+// the walkable surface exactly matches groundHeightAt so the hero never clips.
+const RAMP_DZ = GATE_Z - RAMP_BOT;
+const rampSlope = GY / RAMP_DZ;            // y = slope*(z - RAMP_BOT)
+const rampTilt = Math.atan2(GY, RAMP_DZ);
+// extend the plane above the gate and BELOW the hall floor so its bottom edge is
+// buried under the flat hall floor — the join is seamless, nothing to step over
+const zTop = GATE_Z + 3, zBot = RAMP_BOT - 12;
+const zMid = (zTop + zBot) / 2;
+const rampLen = (zTop - zBot) / Math.cos(rampTilt);
+const ramp = new THREE.Mesh(new THREE.BoxGeometry(GAP, 0.3, rampLen), stoneMat(120, 96, 66, 3));
+ramp.rotation.x = -rampTilt;
+ramp.position.set(0, rampSlope * (zMid - RAMP_BOT) - 0.16, zMid);
+ramp.receiveShadow = true;
+scene.add(ramp);
+// low open side walls flanking the ramp (no roof, no steps, nothing to bump)
 const corrParts = [];
-for (let s = 0; s <= NSTEPS; s += 2) {
-  const f = s / NSTEPS;
-  const z = GATE_Z - f * (GATE_Z - RAMP_BOT);
+for (let s = 0; s <= 20; s += 1) {
+  const f = s / 20;
+  const z = GATE_Z - f * RAMP_DZ;
   const y = GY - f * GY;
-  for (const sgn of [-1, 1]) corrParts.push(boxAt(3, WALLH, GAP, sgn * (GAP / 2 + 1.5), y + WALLH / 2 - 1, z, 0));
-  if (f < 0.55) corrParts.push(boxAt(GAP + 5, 1, GAP, 0, y + WALLH - 1, z, 0)); // roof over upper stretch only
+  for (const sgn of [-1, 1]) corrParts.push(boxAt(2, WALLH, RAMP_DZ / 20 + 0.4, sgn * (GAP / 2 + 1), y + WALLH / 2 - 1, z, 0));
 }
 const entranceShell = new THREE.Mesh(mergeGeometries(corrParts), stone);
 scene.add(entranceShell);
 
-// a colonnade ringing the hub around the emblem (kept clear of the entrance mouth)
-for (let a = 0; a < 12; a++) {
-  const ang = (a / 12) * Math.PI * 2;
-  if (angDiff(ang, Math.PI / 2) < 0.5) continue; // gap toward the entrance
-  const px = Math.cos(ang) * 8.5, pz = Math.sin(ang) * 8.5;
+// a grand colonnade ringing the hall around the emblem (clear of the entrance)
+for (let a = 0; a < 16; a++) {
+  const ang = (a / 16) * Math.PI * 2;
+  if (angDiff(ang, Math.PI / 2) < 0.42) continue; // gap toward the entrance
+  const px = Math.cos(ang) * (HUBR - 6), pz = Math.sin(ang) * (HUBR - 6);
   const pillar = new THREE.Mesh(pillarGeo, pillarMat);
   pillar.position.set(px, 5.5, pz); pillar.castShadow = true;
   scene.add(pillar);
@@ -429,10 +433,10 @@ for (let a = 0; a < 12; a++) {
   scene.add(cap);
 }
 
-// a stepped circular dais at the heart of the hub
-for (let s = 0; s < 3; s++) {
-  const r = 4.2 - s * 0.9;
-  const tier = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.5, 0.5, 40), s % 2 ? stoneDark : stone);
+// a broad stepped circular dais at the heart of the hall
+for (let s = 0; s < 4; s++) {
+  const r = 7 - s * 1.4;
+  const tier = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.7, 0.5, 48), s % 2 ? stoneDark : stone);
   tier.position.set(0, 0.25 + s * 0.5, 0);
   tier.receiveShadow = true;
   scene.add(tier);
@@ -468,6 +472,108 @@ scene.add(emblemLight);
 const emblemBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 2.6, 9, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0x3fd8bf, transparent: true, opacity: 0.07, side: THREE.DoubleSide }));
 emblemBeam.position.set(0, 4, 0);
 scene.add(emblemBeam);
+
+// ---- route doorways with natural carved-wood signs + wooden direction arrows ----
+const compassName = (ang) => {
+  const deg = (ang * 180 / Math.PI + 360) % 360; // ang = atan2(z,x): -Z north, +Z south
+  return ["East", "South-east", "South", "South-west", "West", "North-west", "North", "North-east"][Math.round(deg / 45) % 8];
+};
+const roman = (n) => { let s = ""; for (const [v, r] of [[10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]]) while (n >= v) { s += r; n -= v; } return s; };
+const hubRoutes = cave.edges
+  .filter((e) => e.a === 0 || e.b === 0)
+  .map((e) => { const o = e.a === 0 ? e.b : e.a; const n = cave.nodes[o]; return { ang: Math.atan2(n.z, n.x) }; })
+  .sort((p, q) => p.ang - q.ang);
+
+// weathered plank texture (shared base for wooden props)
+function makeWoodTex(withText) {
+  const cv = document.createElement("canvas"); cv.width = 256; cv.height = 160;
+  const x = cv.getContext("2d");
+  x.fillStyle = "#6b4a26"; x.fillRect(0, 0, 256, 160);
+  for (let i = 0; i < 46; i++) {
+    x.strokeStyle = `rgba(${(44 + Math.random() * 34) | 0},${(28 + Math.random() * 22) | 0},12,0.4)`;
+    x.lineWidth = 1 + Math.random() * 2;
+    const y = Math.random() * 160;
+    x.beginPath(); x.moveTo(0, y); x.bezierCurveTo(85, y + (Math.random() - 0.5) * 12, 170, y + (Math.random() - 0.5) * 12, 256, y + (Math.random() - 0.5) * 8); x.stroke();
+  }
+  for (const kx of [30, 150, 210]) { x.fillStyle = "rgba(30,18,8,0.5)"; x.beginPath(); x.ellipse(kx, 40 + (kx % 60), 5, 8, 0, 0, 7); x.fill(); } // knots
+  if (withText) {
+    x.strokeStyle = "rgba(28,16,6,0.6)"; x.lineWidth = 8; x.strokeRect(8, 8, 240, 144);
+    x.textAlign = "center"; x.textBaseline = "middle";
+    x.font = "bold 74px Georgia";
+    x.fillStyle = "rgba(22,12,4,0.85)"; x.fillText(withText.num, 128, 60);   // carved (dark)
+    x.fillStyle = "rgba(226,196,138,0.22)"; x.fillText(withText.num, 126, 58); // highlight (depth)
+    x.font = "italic 26px Georgia"; x.fillStyle = "#e6d4a4"; x.fillText(withText.label, 128, 122);
+  }
+  return new THREE.CanvasTexture(cv);
+}
+const woodMat = new THREE.MeshStandardMaterial({ map: makeWoodTex(), roughness: 0.85, metalness: 0.05 });
+const frameMat = stoneMat(150, 120, 84, 1);
+// a small carved numeral on transparent ground, for fingerpost arms
+function makeArmNumTex(numeral) {
+  const cv = document.createElement("canvas"); cv.width = 128; cv.height = 64;
+  const x = cv.getContext("2d");
+  x.textAlign = "center"; x.textBaseline = "middle"; x.font = "bold 44px Georgia";
+  x.fillStyle = "rgba(24,14,6,0.9)"; x.fillText(numeral, 64, 34);
+  x.fillStyle = "rgba(228,198,140,0.3)"; x.fillText(numeral, 63, 32);
+  return new THREE.CanvasTexture(cv);
+}
+
+// a small wooden arrow (shaft + head) that points along local -Z (into the tunnel)
+function makeWoodArrow() {
+  const g = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 2.6), woodMat);
+  shaft.position.z = -0.3; g.add(shaft);
+  const head = new THREE.Mesh(new THREE.ConeGeometry(0.9, 1.4, 4), woodMat);
+  head.rotation.x = -Math.PI / 2; head.position.z = -2; g.add(head);
+  return g;
+}
+
+const routeInfo = [];
+hubRoutes.forEach((r, i) => {
+  const num = i + 1, label = compassName(r.ang);
+  routeInfo.push({ num, label });
+  const dir = new THREE.Vector3(Math.cos(r.ang), 0, Math.sin(r.ang));
+  const grp = new THREE.Group();
+  grp.position.set(dir.x * (HUBR - 1), 0, dir.z * (HUBR - 1));
+  grp.rotation.y = Math.atan2(-dir.x, -dir.z); // faces the hall centre; local -Z points into the tunnel
+  const opening = cave.tunnelW * 2, jambH = 8.5;
+  for (const sx of [-1, 1]) {
+    const j = new THREE.Mesh(new THREE.BoxGeometry(2, jambH, 2), frameMat);
+    j.position.set(sx * (opening / 2 + 1), jambH / 2, 0); j.castShadow = true; grp.add(j);
+  }
+  const lin = new THREE.Mesh(new THREE.BoxGeometry(opening + 6, 2.4, 2.2), frameMat);
+  lin.position.set(0, jambH + 0.5, 0); grp.add(lin);
+  // a carved-wood signboard hung on the lintel by two pegs (lit by the lantern)
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(4.4, 2.8, 0.28), new THREE.MeshStandardMaterial({ map: makeWoodTex({ num: roman(num), label }), roughness: 0.85 }));
+  sign.position.set(0, jambH + 0.4, 1.1); grp.add(sign);
+  for (const sx of [-1, 1]) { const peg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.1, 6), woodMat); peg.position.set(sx * 1.6, jambH + 1.8, 1.0); grp.add(peg); }
+  // a wooden arrow above the door pointing into the passage
+  const arrow = makeWoodArrow(); arrow.position.set(0, jambH + 2.2, 0.6); arrow.rotation.x = 0.35; grp.add(arrow);
+  const lan = new THREE.Mesh(lanternGeo, lanternMat.clone());
+  lan.position.set(opening / 2 + 1, jambH - 1.4, 1.4); grp.add(lan); lanterns.push({ mesh: lan, phase: num });
+  scene.add(grp);
+});
+
+// a wooden fingerpost off to one side of the dais — arms point to each route so
+// it guides without ever blocking the logo (full contents are on the I / index key)
+const fingerpost = new THREE.Group();
+fingerpost.position.set(HUBR * 0.5, 0, HUBR * 0.5);
+fingerpost.add(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.55, 9, 8), woodMat).translateY(4.5));
+hubRoutes.forEach((r, i) => {
+  const g2 = new THREE.Group();
+  g2.position.y = 7.4 - i * 0.82;
+  g2.rotation.y = -r.ang; // local +X points toward the route
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.72, 0.24), woodMat);
+  arm.position.x = 2.2; g2.add(arm);
+  // carved numeral burnt into the plank
+  const numTex = makeArmNumTex(roman(i + 1));
+  const numPlate = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.62), new THREE.MeshStandardMaterial({ map: numTex, transparent: true, roughness: 0.9 }));
+  numPlate.position.set(1.2, 0, 0.13); g2.add(numPlate);
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.9, 4), woodMat);
+  tip.rotation.z = -Math.PI / 2; tip.position.x = 4.2; g2.add(tip);
+  fingerpost.add(g2);
+});
+scene.add(fingerpost);
 
 // the treasure — the assembled artwork — waits at the far end, glowing once
 // every page has been uncovered
@@ -926,7 +1032,7 @@ function animate() {
     heroPos.x += (0 - heroPos.x) * 0.1;
     heroPos.z -= 0.28;
     placeHero();
-    if (heroPos.z < 9) { enteringHall = false; if (!arrived) { arrived = true; setTimeout(() => narrate(magazine.sutradhar.arrive), 500); } }
+    if (heroPos.z < 14) { enteringHall = false; if (!arrived) { arrived = true; setTimeout(() => narrate(magazine.sutradhar.arrive), 500); } }
   } else if (!overlay) {
     const run = keys["shift"] ? 1.7 : 1;
     let f = 0, r = 0;

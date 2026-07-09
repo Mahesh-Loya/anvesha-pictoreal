@@ -42,7 +42,7 @@ function distToSeg(px, pz, ax, az, bx, bz) {
 // corridor, eyelash spokes fanning up-and-right, a lotus crown chamber, and an
 // outer circular border ring. +Z (positive z) is "down toward the entrance".
 export function generateCave(opts = {}) {
-  const { nicheTarget = 250, tunnelW = 7, gateZ = 66 } = opts;
+  const { nicheTarget = 250, tunnelW = 7, gateZ = 70 } = opts;
 
   const nodes = [];
   const edges = [];
@@ -66,8 +66,8 @@ export function generateCave(opts = {}) {
     return best;
   };
 
-  // --- iris: the central hall with the emblem ---
-  const hub = add(0, 0, 21, { hub: true });
+  // --- iris: the large central hall with the emblem ---
+  const hub = add(0, 0, 30, { hub: true });
   const ENTRY_A = Math.PI / 2; // entrance direction (+Z)
 
   // --- mandala petals: alcoves ringing the iris (gap left toward the entrance) ---
@@ -77,7 +77,7 @@ export function generateCave(opts = {}) {
     const a = (i / NP) * Math.PI * 2;
     let da = Math.abs(a - ENTRY_A); if (da > Math.PI) da = Math.PI * 2 - da;
     if (da < 0.62) continue; // wide gap so no petal spoke crosses the entrance mouth
-    const id = add(Math.cos(a) * 33, Math.sin(a) * 33, 7.5, { petal: true });
+    const id = add(Math.cos(a) * 46, Math.sin(a) * 46, 8, { petal: true });
     petals.push({ id, a });
     addEdge(hub, id);
   }
@@ -89,7 +89,7 @@ export function generateCave(opts = {}) {
 
   // --- eye almond: the eye-outline corridor loop ---
   const almond = [];
-  const NA = 18, RX = 66, RZ = 31;
+  const NA = 18, RX = 86, RZ = 44;
   for (let i = 0; i < NA; i++) {
     const a = (i / NA) * Math.PI * 2;
     almond.push({ id: add(Math.cos(a) * RX, Math.sin(a) * RZ, 8), a });
@@ -115,7 +115,7 @@ export function generateCave(opts = {}) {
 
   // --- outer border ring (the logo's circular frame) ---
   const outer = [];
-  const NB = 16, ORX = 92, ORZ = 60;
+  const NB = 16, ORX = 116, ORZ = 78;
   for (let i = 0; i < NB; i++) {
     const a = (i / NB) * Math.PI * 2;
     let da = Math.abs(a - ENTRY_A); if (da > Math.PI) da = Math.PI * 2 - da;
