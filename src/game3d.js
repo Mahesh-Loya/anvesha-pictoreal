@@ -208,6 +208,8 @@ for (const n of cave.nodes) {
     const wx = n.x + Math.cos(ang) * R, wz = n.z + Math.sin(ang) * R;
     // never wall off the entrance corridor strip
     if (Math.abs(wx) < GAP / 2 + 1 && wz > RAMP_BOT - 1) continue;
+    // don't build a wall that lands inside another walkable space (a path)
+    if (isWalkable(cave, wx, wz, 0.6)) continue;
     const arc = ((Math.PI * 2) / SEG) * R * 1.15;
     const tang = Math.atan2(-Math.cos(ang), Math.sin(ang)); // wall runs tangentially
     wallParts.push(boxAt(arc, WALLH, 1.4, wx, WALLH / 2, wz, tang));
@@ -232,7 +234,9 @@ for (const e of cave.edges) {
     const cx = a.x + ux * cs, cz = a.z + uz * cs;
     for (const side of [-1, 1]) {
       const off = (cave.tunnelW + 0.7) * side;
-      wallParts.push(boxAt(wallLen, WALLH, 1.3, cx + px * off, WALLH / 2, cz + pz * off, ry));
+      const wcx = cx + px * off, wcz = cz + pz * off;
+      if (isWalkable(cave, wcx, wcz, 0.6)) continue; // skip walls that fall in a path
+      wallParts.push(boxAt(wallLen, WALLH, 1.3, wcx, WALLH / 2, wcz, ry));
     }
     const nribs = Math.max(1, Math.floor(wallLen / 10));
     for (let k = 1; k <= nribs; k++) {
@@ -452,12 +456,19 @@ const emblem = new THREE.Group();
 const logoTex = new THREE.TextureLoader().load("/pictoreal-logo.png");
 logoTex.colorSpace = THREE.SRGBColorSpace;
 logoTex.anisotropy = 8;
-// the round crest badge (a circle, so no square / black background shows)
-const emblemDisc = new THREE.Mesh(
-  new THREE.CircleGeometry(2.5, 72),
-  new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, alphaTest: 0.15, side: THREE.DoubleSide, toneMapped: false })
-);
-emblem.add(emblemDisc);
+// the round crest badge — two faces: the mandala eye on the front, the new
+// Pictoreal crest on the back (a circle, so no square / black background shows)
+const backTex = new THREE.TextureLoader().load("/pictoreal-logo-back.png");
+backTex.colorSpace = THREE.SRGBColorSpace;
+backTex.anisotropy = 8;
+// mirror horizontally so the back logo reads correctly when the disc faces -Z
+backTex.wrapS = THREE.RepeatWrapping; backTex.repeat.x = -1; backTex.offset.x = 1;
+const discGeo = new THREE.CircleGeometry(2.5, 72);
+const frontDisc = new THREE.Mesh(discGeo, new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, alphaTest: 0.12, side: THREE.FrontSide, toneMapped: false }));
+frontDisc.position.z = 0.03;
+const backDisc = new THREE.Mesh(discGeo, new THREE.MeshBasicMaterial({ map: backTex, transparent: true, alphaTest: 0.12, side: THREE.FrontSide, toneMapped: false }));
+backDisc.rotation.y = Math.PI; backDisc.position.z = -0.03;
+emblem.add(frontDisc, backDisc);
 // a slim gold ring that turns slowly around the crest (the moving element)
 const ring = new THREE.Mesh(new THREE.TorusGeometry(2.62, 0.08, 14, 80), new THREE.MeshStandardMaterial({ color: 0xe0b968, emissive: 0xe0b968, emissiveIntensity: 1.3, metalness: 0.8, roughness: 0.28 }));
 emblem.add(ring);
@@ -1132,24 +1143,24 @@ function animate() {
     if (sp > 0.004) {
       moving = sp > 0.03;
       if (moving) heroFacing = Math.atan2(heroVel.x, heroVel.z);
-      // above ground roam freely; underground the walls are solid (slide along)
+      // on the surface terrace roam freely; everywhere below (hall, tunnels AND
+      // the entrance corridor) use analytic collision so nothing yanks you around
       if (heroPos.z > GATE_Z - 2) {
         heroPos.x = Math.max(-24, Math.min(24, heroPos.x + heroVel.x));
         heroPos.z = Math.max(GATE_Z - 1, Math.min(GATE_Z + 24, heroPos.z + heroVel.z));
         if (!gateOpen && heroPos.z < GATE_Z + 1.2) heroPos.z = GATE_Z + 1.2;
-      } else if (heroPos.z > RAMP_BOT - 1) {
-        heroPos.x = Math.max(-GAP / 2 + 1, Math.min(GAP / 2 - 1, heroPos.x + heroVel.x));
-        heroPos.z += heroVel.z;
       } else {
         const next = slideMove(cave, heroPos.x, heroPos.z, heroVel.x, heroVel.z, 0.9);
-        // kill the velocity component into a wall so we don't stutter against it
         if (next.x === heroPos.x) heroVel.x = 0;
         if (next.z === heroPos.z) heroVel.z = 0;
-        // push out of solid props (pillars, dais, fingerpost) so we can't clip through
+        // push out of solid props (pillars, dais, fingerpost); never into rock
         let nx = next.x, nz = next.z;
         for (const o of obstacles) {
           const dx = nx - o.x, dz = nz - o.z, d = Math.hypot(dx, dz);
-          if (d < o.r && d > 0.0001) { nx = o.x + (dx / d) * o.r; nz = o.z + (dz / d) * o.r; }
+          if (d < o.r && d > 0.0001) {
+            const px = o.x + (dx / d) * o.r, pz = o.z + (dz / d) * o.r;
+            if (isWalkable(cave, px, pz, 0.4)) { nx = px; nz = pz; }
+          }
         }
         heroPos.x = nx; heroPos.z = nz;
       }
