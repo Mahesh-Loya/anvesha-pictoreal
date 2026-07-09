@@ -420,6 +420,8 @@ for (let s = 0; s <= 20; s += 1) {
 const entranceShell = new THREE.Mesh(mergeGeometries(corrParts), stone);
 scene.add(entranceShell);
 
+// solid props the hero must walk AROUND (analytic circles, checked in movement)
+const obstacles = [];
 // a grand colonnade ringing the hall around the emblem (clear of the entrance)
 for (let a = 0; a < 16; a++) {
   const ang = (a / 16) * Math.PI * 2;
@@ -431,6 +433,7 @@ for (let a = 0; a < 16; a++) {
   const cap = new THREE.Mesh(capGeo, gold);
   cap.position.set(px, 11.1, pz);
   scene.add(cap);
+  obstacles.push({ x: px, z: pz, r: 1.5 });
 }
 
 // a broad stepped circular dais at the heart of the hall
@@ -441,6 +444,7 @@ for (let s = 0; s < 4; s++) {
   tier.receiveShadow = true;
   scene.add(tier);
 }
+obstacles.push({ x: 0, z: 0, r: 6.5 }); // keep the hero off the central dais/emblem
 // the 3D Pictoreal logo emblem, rotating and glowing above the dais
 const emblem = new THREE.Group();
 const logoTex = new THREE.TextureLoader().load("/pictoreal-logo.png");
@@ -559,6 +563,7 @@ hubRoutes.forEach((r, i) => {
 const fingerpost = new THREE.Group();
 fingerpost.position.set(HUBR * 0.5, 0, HUBR * 0.5);
 fingerpost.add(new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.55, 9, 8), woodMat).translateY(4.5));
+obstacles.push({ x: HUBR * 0.5, z: HUBR * 0.5, r: 1.1 });
 hubRoutes.forEach((r, i) => {
   const g2 = new THREE.Group();
   g2.position.y = 7.4 - i * 0.82;
@@ -904,17 +909,17 @@ addEventListener("keyup", (e) => (keys[e.key.toLowerCase()] = false));
 
 // ---- camera: trails behind the hero down the tunnels; drag / V to override ----
 let camYaw = 0; // start behind the hero on the terrace, looking toward the gate
-let camPitch = 0.52;
-let CAM_DIST = 11;
+let camPitch = 0.66; // fairly high so it looks down over the walls and shows the way
+let CAM_DIST = 12;
 const PRESETS = [
-  { pitch: 0.5, dist: 12 },   // over-shoulder (default exploration)
-  { pitch: 0.32, dist: 14 },  // low, cinematic
-  { pitch: 0.8, dist: 15 },   // high map-ish look-down
-  { pitch: 0.22, dist: 10 },  // near ground
+  { pitch: 0.66, dist: 12 },  // raised exploration (default) — see over the walls
+  { pitch: 0.9, dist: 15 },   // high map-ish look-down
+  { pitch: 0.42, dist: 13 },  // low, cinematic over-shoulder
+  { pitch: 0.28, dist: 10 },  // near ground
 ];
 let presetIdx = 0;
 let manualUntil = 0; // while > clock time, auto-trail is paused (user is steering)
-let camDistCur = 11; // smoothed camera boom length
+let camDistCur = 12; // smoothed camera boom length
 
 // Mouse-look steering (like a third-person action game): click to capture the
 // mouse, then moving it turns the view; WASD moves relative to where you look.
@@ -1089,7 +1094,13 @@ function animate() {
         // kill the velocity component into a wall so we don't stutter against it
         if (next.x === heroPos.x) heroVel.x = 0;
         if (next.z === heroPos.z) heroVel.z = 0;
-        heroPos.x = next.x; heroPos.z = next.z;
+        // push out of solid props (pillars, dais, fingerpost) so we can't clip through
+        let nx = next.x, nz = next.z;
+        for (const o of obstacles) {
+          const dx = nx - o.x, dz = nz - o.z, d = Math.hypot(dx, dz);
+          if (d < o.r && d > 0.0001) { nx = o.x + (dx / d) * o.r; nz = o.z + (dz / d) * o.r; }
+        }
+        heroPos.x = nx; heroPos.z = nz;
       }
       placeHero();
     }
@@ -1180,26 +1191,24 @@ function animate() {
   const cp = Math.max(0.12, Math.min(1.15, camPitch));
   const dirx = Math.sin(camYaw) * Math.cos(cp);
   const dirz = Math.cos(camYaw) * Math.cos(cp);
-  // pull the boom in so the camera never buries itself in the cave rock
+  // the camera rides high enough to look over the cave walls; only when a low
+  // angle would bury it in the rock do we pull the boom in
+  const camHeight = Math.sin(cp) * CAM_DIST + 2.6;
   let want = CAM_DIST;
-  if (heroPos.z < RAMP_BOT) {
+  if (heroPos.z < RAMP_BOT && camHeight < WALLH + 1.5) {
     want = 3;
     for (let dd = CAM_DIST; dd >= 3; dd -= 0.5) {
       if (isWalkable(cave, hero.position.x + dirx * dd, hero.position.z + dirz * dd, 0.2)) { want = dd; break; }
     }
   }
-  // smooth the boom length so tight corners don't pop the camera
   camDistCur += (want - camDistCur) * (want < camDistCur ? 0.5 : 0.08);
   const dist = camDistCur;
   const ox = dirx * dist;
-  // when the boom is short (tight spot) lift the camera a little so it looks
-  // down over the hero instead of into the wall in front
-  const oy = Math.sin(cp) * dist + 2.4 + (CAM_DIST - dist) * 0.28;
+  const oy = Math.sin(cp) * dist + 2.6 + (CAM_DIST - dist) * 0.35;
   const oz = dirz * dist;
   const desired = new THREE.Vector3(hero.position.x + ox, hero.position.y + oy, hero.position.z + oz);
   camera.position.lerp(desired, settling ? 0.02 : 0.12);
-  // look a little ahead of the hero in the direction it faces
-  camera.lookAt(hero.position.x - Math.sin(heroFacing) * 2, hero.position.y + 2, hero.position.z - Math.cos(heroFacing) * 2);
+  camera.lookAt(hero.position.x - Math.sin(heroFacing) * 2, hero.position.y + 1.6, hero.position.z - Math.cos(heroFacing) * 2);
 
   // proximity prompt
   if (!overlay) {
