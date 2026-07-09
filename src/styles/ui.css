@@ -1,5 +1,73 @@
 /* populated starting Task 8 */
 
+/* ---- mobile touch controls (shown only on touch devices via body.touch) ---- */
+#touch-controls { display: none; }
+body.touch #touch-controls { display: block; }
+body.touch #controls-hint { display: none; }
+/* keep browser pan/zoom gestures from stealing drags on the world/joystick */
+body.touch #three-root canvas { touch-action: none; }
+
+#joy-base {
+  position: fixed;
+  left: 26px;
+  bottom: 32px;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  z-index: 15;
+  touch-action: none;
+  background: radial-gradient(circle at 50% 42%, rgba(30, 60, 52, 0.5), rgba(6, 16, 14, 0.6));
+  border: 1.5px solid rgba(210, 220, 214, 0.35);
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.5), inset 0 0 24px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.15s;
+}
+#joy-base.active { border-color: var(--diya-gold, #fcde5a); }
+#joy-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 42% 38%, #fcde5a, #b98f1e);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.55);
+  will-change: transform;
+}
+#touch-actions {
+  position: fixed;
+  right: 24px;
+  bottom: 40px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+#touch-actions button {
+  touch-action: manipulation;
+  border-radius: 50%;
+  border: 1.5px solid rgba(210, 220, 214, 0.4);
+  background: rgba(10, 24, 20, 0.62);
+  color: var(--silver, #e6ece8);
+  backdrop-filter: blur(3px);
+  cursor: pointer;
+}
+#touch-act {
+  width: 86px;
+  height: 86px;
+  font-size: 34px;
+  color: var(--diya-gold, #fcde5a);
+  border-color: rgba(252, 222, 90, 0.55);
+}
+#touch-act:active { background: rgba(40, 70, 58, 0.9); }
+#touch-cam {
+  width: 58px;
+  height: 58px;
+  font-size: 24px;
+}
+#touch-cam:active { background: rgba(40, 70, 58, 0.9); }
+
 /* Subtle permanent vignette so the world edges fall into shadow and the
    center reads as lit. Sits just above the canvas, below all UI. */
 #vignette {

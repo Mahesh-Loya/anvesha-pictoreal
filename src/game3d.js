@@ -17,6 +17,7 @@ import { narrate, advanceNarration, isNarrating } from "./ui/narration.js";
 import { mountHud, updateHudCount, getHudJournalButtonRect } from "./ui/hud.js";
 import { isAnyOverlayOpen } from "./ui/overlays.js";
 import { isSpeaking } from "./systems/voice.js";
+import { initTouchControls, touchMove, isTouchDevice } from "./ui/touch.js";
 
 // ---------------------------------------------------------------------------
 // Pictoreal · Volume 28 — a 3D descent through a stepwell. Each magazine page
@@ -902,6 +903,24 @@ function begin() {
 }
 splash.addEventListener("click", begin);
 
+// the shared "E / Space / tap" action: advance narration, open the gate when
+// standing at it, otherwise open the page you're nearest. Used by keyboard,
+// canvas tap and the mobile interact button.
+function interact() {
+  if (isNarrating()) { advanceNarration(); return; }
+  if (isAnyOverlayOpen()) return;
+  // near the closed gate? open it, let the doors swing, then stride down
+  if (!gateOpen && heroPos.z > GATE_Z - 1 && Math.abs(heroPos.x) < GAP) {
+    gateOpen = true;
+    playDescentRumble();
+    narrate(magazine.sutradhar.descend);
+    setTimeout(() => { enteringHall = true; }, 1500);
+    return;
+  }
+  const s = nearestSlot();
+  if (s && s.stop) openStop(s.stop);
+}
+
 // keyboard
 const keys = {};
 addEventListener("keydown", (e) => {
@@ -911,31 +930,13 @@ addEventListener("keydown", (e) => {
     if (k === " " || k === "enter") begin();
     return;
   }
-  if (k === " " || k === "enter" || k === "e") {
-    if (isNarrating()) { advanceNarration(); return; }
-    if (isAnyOverlayOpen()) return;
-    // near the closed gate? open it, let the doors swing, then stride down
-    if (!gateOpen && heroPos.z > GATE_Z - 1 && Math.abs(heroPos.x) < GAP) {
-      gateOpen = true;
-      playDescentRumble();
-      narrate(magazine.sutradhar.descend);
-      // begin the descent once the doors have swung open
-      setTimeout(() => { enteringHall = true; }, 1500);
-      return;
-    }
-    const s = nearestSlot();
-    if (s && s.stop) openStop(s.stop);
-  }
+  if (k === " " || k === "enter" || k === "e") interact();
   // quick shortcuts: index / journal / cycle camera angle
   if (!isAnyOverlayOpen()) {
     if (k === "i") openContents();
     if (k === "j") openJournal();
     if (k === "l") applyTheme(!brightMode);
-    if (k === "v") {
-      presetIdx = (presetIdx + 1) % PRESETS.length;
-      camPitch = PRESETS[presetIdx].pitch;
-      CAM_DIST = PRESETS[presetIdx].dist;
-    }
+    if (k === "v") cycleCamera();
   }
   if (k === "escape") {
     if (isReaderOpen()) return closeReader();
@@ -1002,8 +1003,19 @@ renderer.domElement.addEventListener("pointerup", () => {
     return;
   }
   if (wasDrag) return;
+  // a clean tap: on touch, open the page you're standing at; on desktop,
+  // capture the mouse for first-person-style look.
+  if (isTouchDevice()) { if (started) interact(); return; }
   if (started) renderer.domElement.requestPointerLock?.(); // capture the mouse
 });
+
+function cycleCamera() {
+  presetIdx = (presetIdx + 1) % PRESETS.length;
+  camPitch = PRESETS[presetIdx].pitch;
+  CAM_DIST = PRESETS[presetIdx].dist;
+}
+
+initTouchControls({ onInteract: interact, onCamera: cycleCamera });
 
 addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight;
@@ -1124,6 +1136,7 @@ function animate() {
     if (keys["arrowdown"] || keys["s"]) f -= 1;
     if (keys["arrowright"] || keys["d"]) r += 1;
     if (keys["arrowleft"] || keys["a"]) r -= 1;
+    f += touchMove.f; r += touchMove.r; // virtual joystick (mobile)
     // desired velocity, camera-relative
     let dvx = 0, dvz = 0;
     if (f || r) {
