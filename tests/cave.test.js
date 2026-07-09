@@ -34,6 +34,16 @@ describe("cave generator", () => {
     }
   });
 
+  it("no tunnel cuts across the entrance mouth column", () => {
+    for (const e of cave.edges) {
+      const a = cave.nodes[e.a], b = cave.nodes[e.b];
+      for (let t = 0; t <= 1; t += 0.05) {
+        const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t;
+        if (Math.abs(x) < 8 && z > 30) expect.fail(`edge ${e.a}-${e.b} crosses the mouth at (${x.toFixed(1)},${z.toFixed(1)})`);
+      }
+    }
+  });
+
   it("produces the full niche skeleton", () => {
     expect(cave.niches.length).toBe(250);
   });

@@ -51,9 +51,19 @@ export function generateCave(opts = {}) {
     nodes.push({ id: nodes.length, x, z, r, hub: false, ...extra });
     return nodes.length - 1;
   };
+  // does the tunnel between two nodes cut across the entrance mouth column?
+  const crossesEntrance = (a, b) => {
+    const A = nodes[a], B = nodes[b];
+    for (let t = 0; t <= 1; t += 0.04) {
+      const x = A.x + (B.x - A.x) * t, z = A.z + (B.z - A.z) * t;
+      if (Math.abs(x) < 11 && z > 26) return true;
+    }
+    return false;
+  };
   const addEdge = (a, b) => {
     const k = KEY(a, b);
     if (a === b || edgeSet.has(k)) return;
+    if (crossesEntrance(a, b)) return; // keep the descent into the hall clear
     edgeSet.add(k);
     edges.push({ a, b });
   };
