@@ -592,114 +592,133 @@ const deepNode = cave.nodes.reduce((best, n) => (Math.hypot(n.x, n.z) > Math.hyp
 chest.position.set(deepNode.x, 0, deepNode.z);
 scene.add(chest);
 
-// ---- the Sutradhar (cartoon proportions: big head, expressive face,
-// holding a torch that is the only real light in the dark) ----
-const SKIN = new THREE.MeshStandardMaterial({ color: 0xe6b98a, roughness: 0.6 });
-const ROBE_MAT = new THREE.MeshStandardMaterial({ color: 0xd97a2b, roughness: 0.7 });
+// ---- the Sutradhar: a young turbaned traveller — blue kurta, yellow
+// churidar & turban, a leather satchel, sandals; he carries a lamp that is
+// the only real light in the dark. Face on the -Z side so he looks at you. ----
+const SKIN = new THREE.MeshStandardMaterial({ color: 0xc4895a, roughness: 0.6 });
+const KURTA = new THREE.MeshStandardMaterial({ color: 0x2f6fb0, roughness: 0.7 }); // blue kurta
+const PANTS = new THREE.MeshStandardMaterial({ color: 0xe6b83a, roughness: 0.7 }); // yellow churidar
+const TURBAN_MAT = new THREE.MeshStandardMaterial({ color: 0xf0c341, roughness: 0.7 }); // gold turban
+const HAIR_MAT = new THREE.MeshStandardMaterial({ color: 0x241811, roughness: 0.85 });
+const LEATHER = new THREE.MeshStandardMaterial({ color: 0x6e4423, roughness: 0.8, metalness: 0.05 });
+const SANDAL = new THREE.MeshStandardMaterial({ color: 0x5a3a1e, roughness: 0.85 });
+const ROBE_MAT = KURTA; // arms match the kurta
 const hero = new THREE.Group();
 
-// rounded little body
-const robe = new THREE.Mesh(new THREE.ConeGeometry(0.95, 2.0, 16), ROBE_MAT);
-robe.position.y = 1.0;
-robe.castShadow = true;
-hero.add(robe);
-const sash = new THREE.Mesh(new THREE.TorusGeometry(0.66, 0.13, 8, 20), new THREE.MeshStandardMaterial({ color: 0x7a2230 }));
-sash.position.y = 1.65;
-sash.rotation.x = Math.PI / 2;
-hero.add(sash);
+// legs (churidar) + sandals — planted on the floor, don't bob
+for (const lx of [-0.25, 0.25]) {
+  const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 1.6, 10), PANTS);
+  leg.position.set(lx, 0.8, 0); leg.castShadow = true; hero.add(leg);
+  const foot = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.16, 0.74), SANDAL);
+  foot.position.set(lx, 0.09, 0.14); hero.add(foot);
+  const sStrap = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.035, 6, 12), SANDAL);
+  sStrap.rotation.x = Math.PI / 2; sStrap.position.set(lx, 0.17, 0.05); hero.add(sStrap);
+}
 
-// head + face grouped so they bob together; face is on the -Z side (toward
-// the camera) so the Sutradhar looks at the seeker like a guide
+// torso: the blue kurta (a group so it bobs with the walk cycle)
+const robe = new THREE.Group();
+const kurta = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.68, 1.55, 18), KURTA);
+kurta.geometry.translate(0, 0.72, 0); // local 0 = hem, top ~1.5 = shoulders
+kurta.castShadow = true; robe.add(kurta);
+// a hint of the side slit + kurta hem trim
+const hem = new THREE.Mesh(new THREE.CylinderGeometry(0.69, 0.69, 0.12, 18), new THREE.MeshStandardMaterial({ color: 0x255c93, roughness: 0.7 }));
+hem.position.y = 0.06; robe.add(hem);
+// mandarin collar
+const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 0.3, 14), KURTA);
+collar.position.y = 1.6; robe.add(collar);
+hero.add(robe);
+
+// leather satchel on the left hip + a crossbody strap (bob with the torso)
+const bag = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.72, 0.3), LEATHER);
+bag.position.set(-0.58, 0.6, 0.4); bag.rotation.y = 0.2; robe.add(bag);
+const bagFlap = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.34, 0.34), LEATHER);
+bagFlap.position.set(-0.58, 0.86, 0.42); bagFlap.rotation.y = 0.2; robe.add(bagFlap);
+const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.05), gold);
+buckle.position.set(-0.58, 0.66, 0.58); robe.add(buckle);
+const strapBand = new THREE.Mesh(new THREE.BoxGeometry(0.13, 1.9, 0.06), LEATHER);
+strapBand.position.set(-0.02, 1.0, 0.46); strapBand.rotation.z = 0.52; strapBand.rotation.x = -0.05; robe.add(strapBand);
+
+// head + face grouped so they bob together
 const headGroup = new THREE.Group();
 hero.add(headGroup);
-const head = new THREE.Mesh(new THREE.SphereGeometry(0.82, 20, 20), SKIN);
-head.position.y = 2.7;
-head.scale.set(1, 0.95, 0.95);
-head.castShadow = true;
+const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, 0.3, 10), SKIN);
+neck.position.y = 2.02; headGroup.add(neck);
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.62, 22, 22), SKIN);
+head.position.y = 2.62; head.scale.set(1, 1.08, 0.98); head.castShadow = true;
 headGroup.add(head);
-// ears
-for (const ex of [-0.8, 0.8]) {
-  const ear = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), SKIN);
-  ear.position.set(ex, 2.62, 0);
-  headGroup.add(ear);
+for (const ex of [-0.6, 0.6]) {
+  const ear = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), SKIN);
+  ear.position.set(ex, 2.58, 0); headGroup.add(ear);
 }
-// turban with a glowing jewel
-const turban = new THREE.Mesh(new THREE.SphereGeometry(0.9, 20, 14, 0, Math.PI * 2, 0, Math.PI / 1.7), new THREE.MeshStandardMaterial({ color: 0x145047, roughness: 0.7 }));
-turban.position.y = 3.02;
-turban.scale.set(1.05, 0.9, 1.05);
-headGroup.add(turban);
-const jewel = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xfcde5a, emissiveIntensity: 1.6 }));
-jewel.position.set(0, 3.2, -0.6);
-headGroup.add(jewel);
+// dark curly hair peeking out below the turban (sides + nape)
+for (const [hx, hy, hz, s] of [[-0.5, 2.5, 0.1, 0.24], [0.5, 2.5, 0.1, 0.24], [-0.36, 2.5, 0.42, 0.2], [0.36, 2.5, 0.42, 0.2], [0, 2.46, 0.5, 0.22], [-0.3, 2.52, -0.42, 0.24], [0.3, 2.52, -0.42, 0.24]]) {
+  const curl = new THREE.Mesh(new THREE.SphereGeometry(s, 8, 8), HAIR_MAT);
+  curl.position.set(hx, hy, hz); headGroup.add(curl);
+}
+// the wrapped gold turban (dome + overlapping wrap bands + a small front fold)
+const turban = new THREE.Group();
+const tCap = new THREE.Mesh(new THREE.SphereGeometry(0.66, 20, 16, 0, Math.PI * 2, 0, Math.PI / 1.8), TURBAN_MAT);
+tCap.scale.set(1.08, 0.92, 1.08); turban.add(tCap);
+for (const [ty, tilt] of [[-0.02, 0.12], [0.12, -0.05], [0.24, 0.05]]) {
+  const wrap = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.15, 10, 24), TURBAN_MAT);
+  wrap.rotation.x = Math.PI / 2; wrap.rotation.z = tilt; wrap.position.y = ty; wrap.scale.set(1.05, 1.05, 0.7); turban.add(wrap);
+}
+const tFold = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.4, 8), TURBAN_MAT);
+tFold.position.set(0.3, 0.34, -0.1); tFold.rotation.z = -0.5; turban.add(tFold);
+turban.position.y = 2.98; headGroup.add(turban);
 
 // big expressive eyes
 const eyeWhite = new THREE.MeshStandardMaterial({ color: 0xf7f2ea, roughness: 0.35 });
-const eyeDark = new THREE.MeshStandardMaterial({ color: 0x1a2420, roughness: 0.25 });
-const browMat = new THREE.MeshStandardMaterial({ color: 0x2a1f14 });
-for (const ex of [-0.3, 0.3]) {
-  const white = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), eyeWhite);
-  white.position.set(ex, 2.78, -0.6);
-  white.scale.set(0.85, 1.1, 0.6);
-  headGroup.add(white);
-  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), eyeDark);
-  pupil.position.set(ex, 2.75, -0.74);
-  headGroup.add(pupil);
-  const shine = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
-  shine.position.set(ex + 0.04, 2.8, -0.82);
-  headGroup.add(shine);
-  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.08), browMat);
-  brow.position.set(ex, 3.05, -0.66);
-  brow.rotation.z = ex < 0 ? 0.12 : -0.12;
-  headGroup.add(brow);
+const eyeDark = new THREE.MeshStandardMaterial({ color: 0x2a1c10, roughness: 0.25 });
+const browMat = new THREE.MeshStandardMaterial({ color: 0x1c120a });
+for (const ex of [-0.26, 0.26]) {
+  const white = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), eyeWhite);
+  white.position.set(ex, 2.66, -0.5); white.scale.set(0.9, 1.1, 0.6); headGroup.add(white);
+  const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 12), eyeDark);
+  pupil.position.set(ex, 2.64, -0.6); headGroup.add(pupil);
+  const shine = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+  shine.position.set(ex + 0.03, 2.69, -0.66); headGroup.add(shine);
+  // thick dark eyebrow
+  const brow = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.09, 0.1), browMat);
+  brow.position.set(ex, 2.86, -0.54); brow.rotation.z = ex < 0 ? 0.16 : -0.16; headGroup.add(brow);
 }
-// nose + rosy cheeks + mouth (mouth scales open while speaking)
-const nose = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 10), SKIN);
-nose.position.set(0, 2.62, -0.82);
-headGroup.add(nose);
-for (const ex of [-0.46, 0.46]) {
-  const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), new THREE.MeshStandardMaterial({ color: 0xe08a6a, roughness: 0.7 }));
-  cheek.position.set(ex, 2.5, -0.66);
-  cheek.scale.set(1, 0.7, 0.4);
-  headGroup.add(cheek);
-}
-const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 12), new THREE.MeshStandardMaterial({ color: 0x5a2530, roughness: 0.5 }));
-mouth.position.set(0, 2.34, -0.72);
-mouth.scale.set(1.5, 0.35, 0.4);
-headGroup.add(mouth);
-// the third eye — the Anvesha seeing-eye, glowing gold between the brows
-const tilak = new THREE.Mesh(new THREE.SphereGeometry(0.08, 10, 10), new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xfcde5a, emissiveIntensity: 2 }));
-tilak.position.set(0, 3.02, -0.68);
-tilak.scale.set(0.7, 1.3, 0.5);
-headGroup.add(tilak);
+// nose + mouth (mouth opens while speaking)
+const nose = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 10), SKIN);
+nose.position.set(0, 2.52, -0.66); nose.scale.set(0.8, 1, 1.1); headGroup.add(nose);
+const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 12), new THREE.MeshStandardMaterial({ color: 0x6a2f2a, roughness: 0.5 }));
+mouth.position.set(0, 2.3, -0.58); mouth.scale.set(1.4, 0.35, 0.4); headGroup.add(mouth);
 
-// arms (pivot at shoulder)
-const armGeo = new THREE.CylinderGeometry(0.14, 0.12, 1.1, 8);
-armGeo.translate(0, -0.55, 0);
+// arms (pivot at shoulder), sleeves match the kurta
+const armGeo = new THREE.CylinderGeometry(0.13, 0.11, 1.15, 8);
+armGeo.translate(0, -0.57, 0);
+const handGeo = new THREE.SphereGeometry(0.12, 10, 10);
 const armL = new THREE.Group();
-armL.position.set(-0.62, 1.85, 0);
-armL.add(new THREE.Mesh(armGeo, ROBE_MAT));
+armL.position.set(-0.52, 2.05, 0);
+armL.add(new THREE.Mesh(armGeo, KURTA));
+armL.add(new THREE.Mesh(handGeo, SKIN).translateY(-1.16));
 hero.add(armL);
-const armR = new THREE.Group(); // holds the torch
-armR.position.set(0.62, 1.85, -0.1);
-armR.add(new THREE.Mesh(armGeo, ROBE_MAT));
+const armR = new THREE.Group(); // holds the lamp
+armR.position.set(0.52, 2.05, -0.1);
+armR.add(new THREE.Mesh(armGeo, KURTA));
+const handR = new THREE.Mesh(handGeo, SKIN); handR.position.y = -1.16; armR.add(handR);
 hero.add(armR);
 
-// the torch: a handle + a bright flame that is the light source
-const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.8, 8), new THREE.MeshStandardMaterial({ color: 0x4a2f18 }));
-handle.position.set(0.05, -1.0, 0.1);
-armR.add(handle);
-const diya = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.5, 10), new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffcf5a, emissiveIntensity: 3.2 }));
-diya.position.set(0.05, -1.5, 0.1);
-armR.add(diya);
-const diyaGlow = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.3 }));
+// the lamp: a small brass oil lamp with a bright flame — the light source
+const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.5, 8), new THREE.MeshStandardMaterial({ color: 0x8a6a2a, roughness: 0.4, metalness: 0.6 }));
+handle.position.set(0.05, -1.05, 0.12); armR.add(handle);
+const lampBowl = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x9c7a34, roughness: 0.4, metalness: 0.6 }));
+lampBowl.position.set(0.05, -1.32, 0.12); armR.add(lampBowl);
+const diya = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.46, 10), new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffcf5a, emissiveIntensity: 3.2 }));
+diya.position.set(0.05, -1.15, 0.12); armR.add(diya);
+const diyaGlow = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.3 }));
 diya.add(diyaGlow);
 const lamp = new THREE.PointLight(0xffce6a, 14, 55, 2);
 lamp.castShadow = true;
 lamp.shadow.mapSize.set(1024, 1024);
 diya.add(lamp);
 // a soft warm light riding on the head so the face stays readable as it turns
-const faceLight = new THREE.PointLight(0xffdca6, 1.7, 5.5, 2);
-faceLight.position.set(0, 2.7, -1.5);
+const faceLight = new THREE.PointLight(0xffdca6, 1.6, 5, 2);
+faceLight.position.set(0, 2.6, -1.4);
 headGroup.add(faceLight);
 scene.add(hero);
 
