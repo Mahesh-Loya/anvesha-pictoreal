@@ -741,6 +741,8 @@ scene.add(hero);
 // and it replaces the primitive body (keeping the lamp + all game logic). See MODEL.md.
 const primitiveBody = [...hero.children].filter((c) => c !== lampRig);
 let heroMixer = null;
+let heroModel = null; // the loaded GLB body (bobbed procedurally while walking)
+let heroModelBaseY = 0;
 new GLTFLoader().load(
   "models/sutradhar.glb",
   (gltf) => {
@@ -752,8 +754,20 @@ new GLTFLoader().load(
     const min = box.min.clone().multiplyScalar(s);
     const c = box.getCenter(new THREE.Vector3()).multiplyScalar(s);
     model.position.set(-c.x, -min.y, -c.z); // feet on the floor, centred
-    model.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    model.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = true;
+      // generated GLBs often ship metallic=1, which renders black under point
+      // lights (no environment map) — force a matte, lamp-friendly response
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        if ("metalness" in m) m.metalness = 0;
+        if ("roughness" in m) m.roughness = Math.min(m.roughness ?? 1, 0.9);
+      }
+    });
     hero.add(model);
+    heroModel = model;
+    heroModelBaseY = model.position.y;
     primitiveBody.forEach((m) => (m.visible = false)); // hide the placeholder body
     if (gltf.animations?.length) {
       heroMixer = new THREE.AnimationMixer(model);
@@ -1184,6 +1198,11 @@ function animate() {
   if (moving && t > nextStep) { playFootstep(); nextStep = t + 0.34; }
   const rate = moving ? 6 : 2;
   const bob = Math.abs(Math.sin(t * rate)) * (moving ? 0.12 : 0.05);
+  if (heroModel) {
+    // static GLB body: give it the same stride bob + a faint idle sway
+    heroModel.position.y = heroModelBaseY + bob * 0.6;
+    heroModel.rotation.z = Math.sin(t * (moving ? rate : 1.2)) * (moving ? 0.03 : 0.012);
+  }
   robe.position.y = 1.0 + bob;
   headGroup.position.y = bob;
   armL.rotation.x = Math.sin(t * rate) * (moving ? 0.4 : 0.12);
