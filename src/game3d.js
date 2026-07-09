@@ -454,12 +454,12 @@ obstacles.push({ x: 0, z: 0, r: 7.8 }); // keep the hero off the central dais/em
 // the Pictoreal crest, floating and glowing above the dais — the FULL badge
 // (the old circle-cropped version cut off its border + title text)
 const emblem = new THREE.Group();
-const logoTex = new THREE.TextureLoader().load("/pictoreal-logo.png");
+const logoTex = new THREE.TextureLoader().load("pictoreal-logo.png");
 logoTex.colorSpace = THREE.SRGBColorSpace;
 logoTex.anisotropy = 8;
 // the round crest badge — two faces: the mandala eye on the front, the new
 // Pictoreal crest on the back (a circle, so no square / black background shows)
-const backTex = new THREE.TextureLoader().load("/pictoreal-logo-back.png");
+const backTex = new THREE.TextureLoader().load("pictoreal-logo-back.png");
 backTex.colorSpace = THREE.SRGBColorSpace;
 backTex.anisotropy = 8;
 const discGeo = new THREE.CircleGeometry(2.5, 72);
@@ -742,7 +742,7 @@ scene.add(hero);
 const primitiveBody = [...hero.children].filter((c) => c !== lampRig);
 let heroMixer = null;
 new GLTFLoader().load(
-  "/models/sutradhar.glb",
+  "models/sutradhar.glb",
   (gltf) => {
     const model = gltf.scene;
     const box = new THREE.Box3().setFromObject(model);

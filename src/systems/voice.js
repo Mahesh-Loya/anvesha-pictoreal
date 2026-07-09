@@ -20,7 +20,7 @@ export function voiceKey(text) {
 // ---- pre-generated clip manifest (loaded once, best-effort) ----
 let manifest = null;
 if (typeof fetch !== "undefined") {
-  fetch("/voice/manifest.json")
+  fetch("voice/manifest.json")
     .then((r) => (r.ok ? r.json() : null))
     .then((m) => { manifest = m; })
     .catch(() => {});
