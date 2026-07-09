@@ -6,7 +6,7 @@ import gsap from "gsap";
 import { magazine } from "./content/magazine.config.js";
 import { state } from "./state.js";
 import { surfaceFragment, isJourneyComplete, getSurfacedCount } from "./systems/fragments.js";
-import { playFragmentChime, playFootstep, startAmbientMusic } from "./systems/audio.js";
+import { playFragmentChime, playFootstep, startAmbientMusic, playDescentRumble } from "./systems/audio.js";
 import { openReader, isReaderOpen, closeReader } from "./ui/reader.js";
 import { openJournal, isJournalOpen, closeJournal } from "./ui/journal.js";
 import { openContents, isContentsOpen, closeContents, setJumpHandler } from "./ui/contents.js";
@@ -132,10 +132,9 @@ floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
 
-// boundary walls
+// boundary walls (the +Z side is left open for the entrance gate)
 for (const [x, z, w, d] of [
   [0, -HALL - 3, HALL * 2 + 12, 2],
-  [0, HALL + 3, HALL * 2 + 12, 2],
   [-HALL - 3, 0, 2, HALL * 2 + 12],
   [HALL + 3, 0, 2, HALL * 2 + 12],
 ]) {
@@ -143,6 +142,106 @@ for (const [x, z, w, d] of [
   wl.position.set(x, 4, z);
   wl.receiveShadow = true;
   scene.add(wl);
+}
+
+// ---- the entrance: a mysterious well-gate you open, then stairs down ----
+const GATE_Z = HALL + 3; // 23
+const GAP = 8;
+
+// ground height: raised entrance court -> stairs -> hall floor at 0
+function groundHeightAt(z) {
+  if (z >= GATE_Z + 1) return 3;
+  if (z >= 14) return 3 * (z - 14) / (GATE_Z + 1 - 14);
+  return 0;
+}
+
+// carved inscription texture (club name + events) — looks engraved in stone
+function makeInscription() {
+  const cv = document.createElement("canvas");
+  cv.width = 512; cv.height = 512;
+  const x = cv.getContext("2d");
+  x.fillStyle = "#5b4a30"; x.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 14000; i++) {
+    const v = (Math.random() - 0.5) * 46;
+    x.fillStyle = `rgba(${(96 + v) | 0},${(78 + v) | 0},${(50 + v) | 0},0.4)`;
+    x.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
+  }
+  x.textAlign = "center";
+  x.fillStyle = "#26190c";
+  x.font = "bold 38px Georgia";
+  x.fillText(magazine.club.name, 256, 70);
+  x.font = "22px Georgia";
+  magazine.club.lines.forEach((ln, i) => x.fillText(ln, 256, 135 + i * 40));
+  // faint highlight to fake engraving depth
+  x.fillStyle = "rgba(240,230,210,0.12)";
+  x.font = "bold 38px Georgia";
+  x.fillText(magazine.club.name, 255, 69);
+  return new THREE.CanvasTexture(cv);
+}
+const inscriptionMat = new THREE.MeshStandardMaterial({ map: makeInscription(), roughness: 0.95, bumpMap: makeInscription(), bumpScale: 0.4 });
+
+// gate facade: two wall segments flanking the gap, a lintel, inscriptions
+const segW = (HALL * 2 + 12 - GAP) / 2;
+for (const sgn of [-1, 1]) {
+  const seg = new THREE.Mesh(new THREE.BoxGeometry(segW, 10, 2.4), stone);
+  seg.position.set(sgn * (GAP / 2 + segW / 2), 5, GATE_Z);
+  seg.receiveShadow = true; seg.castShadow = true;
+  scene.add(seg);
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(segW - 1.5, 6), inscriptionMat);
+  panel.position.set(sgn * (GAP / 2 + segW / 2), 5.2, GATE_Z + 1.25);
+  scene.add(panel);
+}
+const lintel = new THREE.Mesh(new THREE.BoxGeometry(GAP + 4, 2.2, 3), stone);
+lintel.position.set(0, 9, GATE_Z);
+scene.add(lintel);
+// glowing keystone eye above the gate
+const keystone = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xfcde5a, emissiveIntensity: 2 }));
+keystone.position.set(0, 9, GATE_Z + 1.4);
+keystone.scale.set(1.6, 1, 0.6);
+scene.add(keystone);
+
+// two doors hinged at the outer edges of the gap
+const doorMat = new THREE.MeshStandardMaterial({ color: 0x3f2a16, roughness: 0.7, metalness: 0.2 });
+function makeDoor(sgn) {
+  const pivot = new THREE.Group();
+  pivot.position.set(sgn * (GAP / 2), 0, GATE_Z);
+  const leaf = new THREE.Mesh(new THREE.BoxGeometry(GAP / 2, 7.5, 0.5), doorMat);
+  leaf.position.set(-sgn * (GAP / 4), 3.9, 0);
+  // gold studs
+  for (let r = 0; r < 3; r++) for (let cc = 0; cc < 2; cc++) {
+    const stud = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), gold);
+    stud.position.set(-sgn * (0.6 + cc * 1.6), 2 + r * 2, 0.3);
+    leaf.add(stud);
+  }
+  pivot.add(leaf);
+  scene.add(pivot);
+  return pivot;
+}
+const doorL = makeDoor(-1);
+const doorR = makeDoor(1);
+let gateOpen = false;
+let gateSwing = 0;
+
+// raised entrance courtyard floor + side walls + descent steps into the hall
+const court = new THREE.Mesh(new THREE.BoxGeometry(GAP + 10, 1, 12), stoneDark);
+court.position.set(0, 2.5, GATE_Z + 6);
+court.receiveShadow = true;
+scene.add(court);
+for (const sgn of [-1, 1]) {
+  const w2 = new THREE.Mesh(new THREE.BoxGeometry(1.5, 8, 12), stone);
+  w2.position.set(sgn * (GAP / 2 + 5), 6, GATE_Z + 6);
+  scene.add(w2);
+}
+const backWall = new THREE.Mesh(new THREE.BoxGeometry(GAP + 11, 12, 1.5), stone);
+backWall.position.set(0, 6, GATE_Z + 12);
+scene.add(backWall);
+// descent steps (visual) from the gate down into the hall
+for (let s = 0; s < 6; s++) {
+  const f = s / 6;
+  const step = new THREE.Mesh(new THREE.BoxGeometry(GAP, 0.6, 1.6), s % 2 ? stoneDark : stone);
+  step.position.set(0, 3 - 3 * (s / 5) - 0.3, 14 + (GATE_Z + 1 - 14) * (1 - f));
+  step.receiveShadow = true;
+  scene.add(step);
 }
 
 // a ring of pillars + capitals, with hanging lanterns on alternate ones
@@ -332,11 +431,11 @@ faceLight.position.set(0, 2.7, -1.5);
 hero.add(faceLight);
 scene.add(hero);
 
-// hero roams the floor freely in X/Z
-const heroPos = new THREE.Vector3(7, 0, 13);
-let heroFacing = Math.atan2(-7, -13); // looking toward the centre
+// hero roams the floor freely in X/Z; y follows the ground (entrance is raised)
+const heroPos = new THREE.Vector3(0, 0, GATE_Z + 8);
+let heroFacing = Math.PI; // facing the gate / into the hall
 function placeHero() {
-  hero.position.set(heroPos.x, 0.2, heroPos.z);
+  hero.position.set(heroPos.x, groundHeightAt(heroPos.z) + 0.2, heroPos.z);
 }
 placeHero();
 
@@ -449,13 +548,23 @@ setJumpHandler((pageId) => {
 
 // ---- opening splash gate ----
 let started = false;
+let settling = false; // the opening camera swoop, before control is handed over
+let enteringHall = false; // scripted stride down through the gate into the hall
 const splash = document.getElementById("splash");
 function begin() {
   if (started) return;
   started = true;
   splash.classList.add("gone");
   startAmbientMusic();
-  if (getSurfacedCount() === 0) setTimeout(() => narrate(magazine.sutradhar.welcome), 300);
+  // dramatic swoop-in: place the camera high and far; the follow-lerp glides
+  // it down to the Sutradhar at the well's mouth while the Sutradhar speaks
+  camera.position.set(0, 34, GATE_Z + 60);
+  camera.lookAt(0, 4, GATE_Z);
+  settling = true;
+  setTimeout(() => {
+    settling = false;
+    if (getSurfacedCount() === 0) narrate(magazine.sutradhar.welcome);
+  }, 3000);
 }
 splash.addEventListener("click", begin);
 
@@ -471,6 +580,13 @@ addEventListener("keydown", (e) => {
   if (k === " " || k === "enter" || k === "e") {
     if (isNarrating()) { advanceNarration(); return; }
     if (isAnyOverlayOpen()) return;
+    // near the closed gate? open it and stride down into the hall
+    if (!gateOpen && heroPos.z > GATE_Z - 1 && Math.abs(heroPos.x) < GAP) {
+      gateOpen = true;
+      enteringHall = true;
+      playDescentRumble();
+      return;
+    }
     const t = nearestOpenableTablet();
     if (t) openStop(t.userData.stop);
   }
@@ -504,40 +620,48 @@ const PRESETS = [
 ];
 let presetIdx = 0;
 
-// distinguish a click (open a tablet) from a drag (rotate the camera)
+// Mouse-look steering (like a third-person action game): click to capture the
+// mouse, then moving it turns the view; WASD moves relative to where you look.
+// A plain click when captured opens the page you're standing at.
 const ray = new THREE.Raycaster();
+let pointerLocked = false;
 let down = null;
 let dragging = false;
-renderer.domElement.addEventListener("pointerdown", (e) => {
-  down = { x: e.clientX, y: e.clientY };
-  dragging = false;
+
+document.addEventListener("pointerlockchange", () => {
+  pointerLocked = document.pointerLockElement === renderer.domElement;
 });
-renderer.domElement.addEventListener("pointermove", (e) => {
-  if (!down) return;
+window.addEventListener("mousemove", (e) => {
+  if (pointerLocked) {
+    camYaw -= e.movementX * 0.0022;
+    camPitch = Math.max(0.14, Math.min(1.25, camPitch + e.movementY * 0.0022));
+    return;
+  }
+  if (!down) return; // fallback drag-to-look when not captured
   const dx = e.clientX - down.x;
   const dy = e.clientY - down.y;
   if (!dragging && Math.hypot(dx, dy) > 6) dragging = true;
   if (dragging) {
     camYaw -= dx * 0.006;
-    camPitch = Math.max(0.08, Math.min(1.15, camPitch + dy * 0.004));
+    camPitch = Math.max(0.14, Math.min(1.25, camPitch + dy * 0.004));
     down = { x: e.clientX, y: e.clientY };
   }
 });
-renderer.domElement.addEventListener("pointerup", (e) => {
+renderer.domElement.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY }; dragging = false; });
+renderer.domElement.addEventListener("pointerup", () => {
   const wasDrag = dragging;
   down = null;
   dragging = false;
-  if (wasDrag) return; // rotated the view, don't open
   if (isNarrating()) { advanceNarration(); return; }
   if (isAnyOverlayOpen()) return;
-  const ndc = new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
-  ray.setFromCamera(ndc, camera);
-  const hits = ray.intersectObjects(tablets, true);
-  if (hits.length) {
-    let g = hits[0].object;
-    while (g && !g.userData.stop) g = g.parent;
-    if (g && g.userData.stop) { jumpToStop(g.userData.i); openStop(g.userData.stop); }
+  if (pointerLocked) {
+    // captured: a click opens the page you're standing at (crosshair)
+    const tb = nearestOpenableTablet();
+    if (tb) openStop(tb.userData.stop);
+    return;
   }
+  if (wasDrag) return;
+  if (started) renderer.domElement.requestPointerLock?.(); // capture the mouse
 });
 
 addEventListener("resize", () => {
@@ -591,10 +715,27 @@ const clock = new THREE.Clock();
 let nextStep = 0;
 function animate() {
   const t = clock.getElapsedTime();
-  const overlay = isAnyOverlayOpen() || !started;
+  const overlay = isAnyOverlayOpen() || !started || settling;
+  if (overlay && pointerLocked) document.exitPointerLock();
+
+  // the gate swings open once triggered
+  const targetSwing = gateOpen ? 1 : 0;
+  gateSwing += (targetSwing - gateSwing) * 0.04;
+  doorL.rotation.y = gateSwing * 1.3;
+  doorR.rotation.y = -gateSwing * 1.3;
+  keystone.material.emissiveIntensity = 2 + Math.sin(t * 4) * 0.6;
 
   let moving = false;
-  if (!overlay) {
+
+  // scripted stride down through the just-opened gate into the hall
+  if (enteringHall) {
+    moving = true;
+    heroFacing = Math.PI;
+    heroPos.x += (0 - heroPos.x) * 0.1;
+    heroPos.z -= 0.13;
+    placeHero();
+    if (heroPos.z < GATE_Z - 6) enteringHall = false;
+  } else if (!overlay) {
     const run = keys["shift"] ? 1.8 : 1;
     let f = 0, r = 0;
     if (keys["arrowup"] || keys["w"]) f += 1;
@@ -614,11 +755,16 @@ function animate() {
         const spd = 0.17 * run;
         heroPos.x += mv.x * spd;
         heroPos.z += mv.z * spd;
-        // stay inside the hall and out of the central shrine pit
+        // stay within the world (the entrance court extends past the hall)
         heroPos.x = Math.max(-HALL + 1, Math.min(HALL - 1, heroPos.x));
-        heroPos.z = Math.max(-HALL + 1, Math.min(HALL - 1, heroPos.z));
-        const cd = Math.hypot(heroPos.x, heroPos.z);
-        if (cd < 6.2) { heroPos.x = (heroPos.x / cd) * 6.2; heroPos.z = (heroPos.z / cd) * 6.2; }
+        heroPos.z = Math.max(-HALL + 1, Math.min(GATE_Z + 9, heroPos.z));
+        // the closed gate blocks the way down into the hall
+        if (!gateOpen && heroPos.z < GATE_Z + 1.2) heroPos.z = GATE_Z + 1.2;
+        // keep out of the central dais (only in the hall, past the gate)
+        if (heroPos.z < GATE_Z - 2) {
+          const cd = Math.hypot(heroPos.x, heroPos.z);
+          if (cd < 5.4) { heroPos.x = (heroPos.x / cd) * 5.4; heroPos.z = (heroPos.z / cd) * 5.4; }
+        }
         heroFacing = Math.atan2(mv.x, mv.z);
         placeHero();
       }
@@ -703,10 +849,10 @@ function animate() {
   const cp = Math.max(0.08, Math.min(1.15, camPitch));
   const ox = Math.sin(camYaw) * Math.cos(cp) * CAM_DIST;
   const oy = Math.sin(cp) * CAM_DIST + 3.4; // higher so steps don't occlude
-  const oz = -Math.cos(camYaw) * Math.cos(cp) * CAM_DIST;
+  const oz = Math.cos(camYaw) * Math.cos(cp) * CAM_DIST; // camera sits behind (+Z), looking into the hall
   const desired = new THREE.Vector3(hero.position.x + ox, hero.position.y + oy, hero.position.z + oz);
   camera.position.lerp(desired, 0.1);
-  camera.lookAt(hero.position.x, hero.position.y + 1.8, hero.position.z + 5);
+  camera.lookAt(hero.position.x, hero.position.y + 1.8, hero.position.z - 4);
 
   // proximity prompt
   if (!overlay) {
