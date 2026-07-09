@@ -12,25 +12,26 @@ describe("cave generator", () => {
     expect(a.edges.length).toBe(b.edges.length);
   });
 
-  it("places the hub at the origin", () => {
+  it("places the iris hall at the origin", () => {
     expect(cave.nodes[0]).toMatchObject({ x: 0, z: 0, hub: true });
+    expect(cave.nodes[0].r).toBeGreaterThanOrEqual(18); // a proper hall
   });
 
-  it("keeps chambers spaced apart", () => {
-    for (let i = 0; i < cave.nodes.length; i++) {
-      for (let j = i + 1; j < cave.nodes.length; j++) {
-        const d = Math.hypot(cave.nodes[i].x - cave.nodes[j].x, cave.nodes[i].z - cave.nodes[j].z);
-        expect(d).toBeGreaterThan(30);
-      }
-    }
+  it("builds the mandala-logo feature set (petals, lashes, lotus)", () => {
+    expect(cave.nodes.some((n) => n.petal)).toBe(true);
+    expect(cave.nodes.some((n) => n.lash)).toBe(true);
+    expect(cave.nodes.filter((n) => n.lotus).length).toBe(1);
   });
 
   it("has more edges than a bare tree (interconnected loops)", () => {
     expect(cave.edges.length).toBeGreaterThan(cave.nodes.length - 1);
   });
 
-  it("keeps the +Z entrance sector clear of chambers", () => {
-    for (const n of cave.nodes) if (!n.hub) expect(n.z).toBeLessThanOrEqual(10);
+  it("leaves an entrance mouth clear of chambers straight ahead (+Z)", () => {
+    // no chamber blocks the narrow corridor centre-line just inside the mouth
+    for (const n of cave.nodes) {
+      if (Math.abs(n.x) < 4 && n.z > 24) expect(false).toBe(true);
+    }
   });
 
   it("produces the full niche skeleton", () => {

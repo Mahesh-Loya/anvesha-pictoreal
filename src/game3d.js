@@ -203,9 +203,12 @@ for (const n of cave.nodes) {
     if (n.hub) skips.push(Math.PI / 2); // entrance faces +Z
     if (skips.some((t) => angDiff(ang, t) < half)) continue;
     const R = n.r + 0.9;
+    const wx = n.x + Math.cos(ang) * R, wz = n.z + Math.sin(ang) * R;
+    // never wall off the entrance corridor strip
+    if (Math.abs(wx) < GAP / 2 + 1 && wz > RAMP_BOT - 1) continue;
     const arc = ((Math.PI * 2) / SEG) * R * 1.15;
     const tang = Math.atan2(-Math.cos(ang), Math.sin(ang)); // wall runs tangentially
-    wallParts.push(boxAt(arc, WALLH, 1.4, n.x + Math.cos(ang) * R, WALLH / 2, n.z + Math.sin(ang) * R, tang));
+    wallParts.push(boxAt(arc, WALLH, 1.4, wx, WALLH / 2, wz, tang));
   }
 }
 
@@ -219,16 +222,21 @@ for (const e of cave.edges) {
   const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
   const ry = Math.atan2(-uz, ux);
   floorParts.push(boxAt(len, 0.1, cave.tunnelW * 2, mx, 0.05, mz, ry));
-  for (const side of [-1, 1]) {
-    const off = (cave.tunnelW + 0.7) * side;
-    wallParts.push(boxAt(len, WALLH, 1.3, mx + px * off, WALLH / 2, mz + pz * off, ry));
-  }
-  // rib arches across the tunnel (cave feel without capping the camera view)
-  const nribs = Math.max(1, Math.floor(len / 10));
-  for (let k = 1; k <= nribs; k++) {
-    const s = (len * k) / (nribs + 1);
-    const cx = a.x + ux * s, cz = a.z + uz * s;
-    archParts.push(boxAt(cave.tunnelW * 2 + 2.4, 1.1, 1.1, cx, WALLH - 0.4, cz, ry + Math.PI / 2));
+  // walls span ONLY the gap between the two chambers (never intrude into them)
+  const s0 = a.r - 1, s1 = len - (b.r - 1);
+  const wallLen = s1 - s0;
+  if (wallLen > 1) {
+    const cs = (s0 + s1) / 2;
+    const cx = a.x + ux * cs, cz = a.z + uz * cs;
+    for (const side of [-1, 1]) {
+      const off = (cave.tunnelW + 0.7) * side;
+      wallParts.push(boxAt(wallLen, WALLH, 1.3, cx + px * off, WALLH / 2, cz + pz * off, ry));
+    }
+    const nribs = Math.max(1, Math.floor(wallLen / 10));
+    for (let k = 1; k <= nribs; k++) {
+      const s = s0 + (wallLen * k) / (nribs + 1);
+      archParts.push(boxAt(cave.tunnelW * 2 + 2.4, 1.1, 1.1, a.x + ux * s, WALLH - 0.4, a.z + uz * s, ry + Math.PI / 2));
+    }
   }
 }
 
@@ -271,6 +279,14 @@ function makeCarving(kind, seedTxt) {
     for (let a = -3; a <= 3; a++) { x.beginPath(); x.moveTo(0, 4); const ax = a * 16; x.lineTo(ax, -52); x.stroke(); x.beginPath(); x.arc(ax, -52, 5, 0, 7); x.fill(); }
     x.beginPath(); x.moveTo(0, 6); x.quadraticCurveTo(10, 34, 4, 54); x.stroke(); // body
     x.beginPath(); x.arc(4, 58, 8, 0, 7); x.stroke(); // head
+  } else if (kind === "god") {
+    // a seated deity beneath an arched halo (stylised)
+    x.beginPath(); x.arc(0, -18, 46, Math.PI, 0); x.stroke(); // halo arch
+    for (let r = 8; r <= 22; r += 7) { x.beginPath(); x.arc(0, -40, r, 0, 7); x.stroke(); } // radiant head-halo
+    x.beginPath(); x.arc(0, -40, 12, 0, 7); x.fill(); // head
+    x.beginPath(); x.moveTo(-26, 46); x.quadraticCurveTo(0, -14, 26, 46); x.closePath(); x.fill(); x.stroke(); // seated body
+    x.beginPath(); x.moveTo(-8, -6); x.lineTo(-40, -26); x.moveTo(8, -6); x.lineTo(40, -26); x.stroke(); // raised arms
+    x.beginPath(); x.arc(-44, -30, 5, 0, 7); x.arc(44, -30, 5, 0, 7); x.fill(); // hands/lotuses
   } else {
     x.restore(); x.save(); x.translate(128, 128);
     x.textAlign = "center"; x.fillStyle = "rgba(24,16,8,0.8)"; x.font = "bold 40px Georgia";
@@ -281,17 +297,32 @@ function makeCarving(kind, seedTxt) {
   const t = new THREE.CanvasTexture(cv);
   return t;
 }
-const carveKinds = ["elephant", "peacock", "pictoreal"];
+const carveKinds = ["elephant", "peacock", "god", "pictoreal"];
 const sections = magazine.tiers.map((t) => t.section);
+const carveMats = carveKinds.map((k, i) => new THREE.MeshStandardMaterial({ map: makeCarving(k, sections[i % sections.length]), roughness: 0.95, emissive: 0x1a130a, emissiveIntensity: 0.35 }));
+const carveGeo = new THREE.PlaneGeometry(3.4, 3.4);
+// carved reliefs on chamber walls (elephants, peacocks, gods, the crest)
 for (const n of cave.nodes) {
   if (n.hub) continue;
-  const kind = carveKinds[n.id % 3];
-  const tex = makeCarving(kind, sections[n.id % sections.length]);
-  const panel = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }));
-  // place on the perimeter roughly opposite the first tunnel so it faces inward
   const base = (neighbourAngles[n.id][0] ?? 0) + Math.PI;
-  panel.position.set(n.x + Math.cos(base) * (n.r - 0.2), 3.2, n.z + Math.sin(base) * (n.r - 0.2));
+  const panel = new THREE.Mesh(carveGeo, carveMats[n.id % carveMats.length]);
+  panel.position.set(n.x + Math.cos(base) * (n.r - 0.15), 3.4, n.z + Math.sin(base) * (n.r - 0.15));
   panel.rotation.y = Math.atan2(-Math.cos(base), -Math.sin(base));
+  scene.add(panel);
+}
+// carved reliefs along the longer tunnel walls too
+for (const e of cave.edges) {
+  const a = cave.nodes[e.a], b = cave.nodes[e.b];
+  const dx = b.x - a.x, dz = b.z - a.z;
+  const len = Math.hypot(dx, dz);
+  if (len < 30) continue;
+  const ux = dx / len, uz = dz / len, px = -uz, pz = ux;
+  const s = len * 0.5, cx = a.x + ux * s, cz = a.z + uz * s;
+  const side = e.a % 2 ? 1 : -1;
+  const off = (cave.tunnelW + 0.2) * side;
+  const panel = new THREE.Mesh(carveGeo, carveMats[e.b % carveMats.length]);
+  panel.position.set(cx + px * off, 3.4, cz + pz * off);
+  panel.rotation.y = Math.atan2(-px * side, -pz * side);
   scene.add(panel);
 }
 
@@ -372,14 +403,15 @@ for (let s = 0; s < NSTEPS; s++) {
   step.position.set(0, y - 0.32, z); step.receiveShadow = true;
   scene.add(step);
 }
-// side walls + a covered ceiling over the descent (so the hub is a reveal at the bottom)
+// side walls the whole way; a roof only over the UPPER descent so the tunnel
+// feels covered but the camera is never trapped under it when you reach the hub
 const corrParts = [];
 for (let s = 0; s <= NSTEPS; s += 2) {
   const f = s / NSTEPS;
   const z = GATE_Z - f * (GATE_Z - RAMP_BOT);
   const y = GY - f * GY;
   for (const sgn of [-1, 1]) corrParts.push(boxAt(3, WALLH, GAP, sgn * (GAP / 2 + 1.5), y + WALLH / 2 - 1, z, 0));
-  corrParts.push(boxAt(GAP + 5, 1, GAP, 0, y + WALLH - 1, z, 0)); // roof slab -> covered
+  if (f < 0.55) corrParts.push(boxAt(GAP + 5, 1, GAP, 0, y + WALLH - 1, z, 0)); // roof over upper stretch only
 }
 const entranceShell = new THREE.Mesh(mergeGeometries(corrParts), stone);
 scene.add(entranceShell);
@@ -425,16 +457,16 @@ emblem.add(ring);
 const emblemGlow = new THREE.Mesh(new THREE.CircleGeometry(3.2, 40), new THREE.MeshBasicMaterial({ color: 0x1f8f7c, transparent: true, opacity: 0.18 }));
 emblemGlow.position.z = -0.1;
 emblem.add(emblemGlow);
-emblem.scale.setScalar(1.25);
-emblem.position.set(0, 4.6, 0); // floats above the dais, clearing the hero's head
+emblem.scale.setScalar(2.3); // a large glowing eye that dominates the hall
+emblem.position.set(0, 8, 0);
 scene.add(emblem);
-// a soft teal light from the emblem
-const emblemLight = new THREE.PointLight(0x3fd8bf, 3.6, 36, 2);
-emblemLight.position.set(0, 6, 0);
+// teal light from the emblem, bright enough to read the hall on arrival
+const emblemLight = new THREE.PointLight(0x5fe8cf, 6, 60, 2);
+emblemLight.position.set(0, 8, 0);
 scene.add(emblemLight);
-// a shaft of light beneath the emblem tying it to the dais
-const emblemBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 1.6, 5.5, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0x3fd8bf, transparent: true, opacity: 0.08, side: THREE.DoubleSide }));
-emblemBeam.position.set(0, 3.2, 0);
+// a shaft of light tying the eye to the dais below
+const emblemBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 2.6, 9, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0x3fd8bf, transparent: true, opacity: 0.07, side: THREE.DoubleSide }));
+emblemBeam.position.set(0, 4, 0);
 scene.add(emblemBeam);
 
 // the treasure — the assembled artwork — waits at the far end, glowing once
@@ -683,6 +715,8 @@ setJumpHandler((pageId) => {
 let started = false;
 let settling = false; // the opening camera swoop, before control is handed over
 let enteringHall = false; // scripted stride down through the gate into the hall
+let arrived = false; // has the Sutradhar delivered the arrival narration yet
+const heroVel = { x: 0, z: 0 }; // smoothed movement velocity
 const splash = document.getElementById("splash");
 function begin() {
   if (started) return;
@@ -713,11 +747,13 @@ addEventListener("keydown", (e) => {
   if (k === " " || k === "enter" || k === "e") {
     if (isNarrating()) { advanceNarration(); return; }
     if (isAnyOverlayOpen()) return;
-    // near the closed gate? open it and stride down into the hall
+    // near the closed gate? open it, let the doors swing, then stride down
     if (!gateOpen && heroPos.z > GATE_Z - 1 && Math.abs(heroPos.x) < GAP) {
       gateOpen = true;
-      enteringHall = true;
       playDescentRumble();
+      narrate(magazine.sutradhar.descend);
+      // begin the descent once the doors have swung open
+      setTimeout(() => { enteringHall = true; }, 1500);
       return;
     }
     const s = nearestSlot();
@@ -753,6 +789,7 @@ const PRESETS = [
 ];
 let presetIdx = 0;
 let manualUntil = 0; // while > clock time, auto-trail is paused (user is steering)
+let camDistCur = 11; // smoothed camera boom length
 
 // Mouse-look steering (like a third-person action game): click to capture the
 // mouse, then moving it turns the view; WASD moves relative to where you look.
@@ -872,11 +909,13 @@ function animate() {
   if (overlay && pointerLocked) document.exitPointerLock();
 
   // the gate swings open once triggered
+  // the great doors swing open with weight (ease-out) once triggered
   const targetSwing = gateOpen ? 1 : 0;
-  gateSwing += (targetSwing - gateSwing) * 0.04;
-  doorL.rotation.y = gateSwing * 1.3;
-  doorR.rotation.y = -gateSwing * 1.3;
-  keystone.material.emissiveIntensity = 2 + Math.sin(t * 4) * 0.6;
+  gateSwing += (targetSwing - gateSwing) * 0.055;
+  const swingEased = 1 - Math.pow(1 - gateSwing, 3);
+  doorL.rotation.y = swingEased * 2.05;
+  doorR.rotation.y = -swingEased * 2.05;
+  keystone.material.emissiveIntensity = (gateOpen ? 3.4 : 2) + Math.sin(t * 4) * 0.6;
 
   let moving = false;
 
@@ -887,43 +926,50 @@ function animate() {
     heroPos.x += (0 - heroPos.x) * 0.1;
     heroPos.z -= 0.28;
     placeHero();
-    if (heroPos.z < 9) enteringHall = false;
+    if (heroPos.z < 9) { enteringHall = false; if (!arrived) { arrived = true; setTimeout(() => narrate(magazine.sutradhar.arrive), 500); } }
   } else if (!overlay) {
-    const run = keys["shift"] ? 1.8 : 1;
+    const run = keys["shift"] ? 1.7 : 1;
     let f = 0, r = 0;
     if (keys["arrowup"] || keys["w"]) f += 1;
     if (keys["arrowdown"] || keys["s"]) f -= 1;
     if (keys["arrowright"] || keys["d"]) r += 1;
     if (keys["arrowleft"] || keys["a"]) r -= 1;
+    // desired velocity, camera-relative
+    let dvx = 0, dvz = 0;
     if (f || r) {
-      moving = true;
-      // move relative to where the camera is looking (feels natural with orbit)
       const camDir = new THREE.Vector3(hero.position.x - camera.position.x, 0, hero.position.z - camera.position.z);
       if (camDir.lengthSq() < 0.001) camDir.set(0, 0, 1);
       camDir.normalize();
       const right = new THREE.Vector3(-camDir.z, 0, camDir.x);
       const mv = new THREE.Vector3().addScaledVector(camDir, f).addScaledVector(right, r);
-      if (mv.lengthSq() > 0) {
-        mv.normalize();
-        const spd = 0.19 * run;
-        heroFacing = Math.atan2(mv.x, mv.z);
-        // above ground (on the terrace / stairs) roam freely; underground, the
-        // cave walls are solid — slide along them instead of passing through
-        if (heroPos.z > GATE_Z - 2) {
-          heroPos.x = Math.max(-24, Math.min(24, heroPos.x + mv.x * spd));
-          heroPos.z = Math.max(GATE_Z - 1, Math.min(GATE_Z + 24, heroPos.z + mv.z * spd));
-          if (!gateOpen && heroPos.z < GATE_Z + 1.2) heroPos.z = GATE_Z + 1.2;
-        } else if (heroPos.z > RAMP_BOT - 1) {
-          // in the covered stair corridor
-          heroPos.x = Math.max(-GAP / 2 + 1, Math.min(GAP / 2 - 1, heroPos.x + mv.x * spd));
-          heroPos.z += mv.z * spd;
-        } else {
-          const next = slideMove(cave, heroPos.x, heroPos.z, mv.x * spd, mv.z * spd, 1.1);
-          heroPos.x = next.x; heroPos.z = next.z;
-        }
-        placeHero();
-      }
+      if (mv.lengthSq() > 0) { mv.normalize(); const spd = 0.2 * run; dvx = mv.x * spd; dvz = mv.z * spd; }
     }
+    // ease velocity toward the target for smooth starts, stops and turns
+    heroVel.x += (dvx - heroVel.x) * 0.22;
+    heroVel.z += (dvz - heroVel.z) * 0.22;
+    const sp = Math.hypot(heroVel.x, heroVel.z);
+    if (sp > 0.004) {
+      moving = sp > 0.03;
+      if (moving) heroFacing = Math.atan2(heroVel.x, heroVel.z);
+      // above ground roam freely; underground the walls are solid (slide along)
+      if (heroPos.z > GATE_Z - 2) {
+        heroPos.x = Math.max(-24, Math.min(24, heroPos.x + heroVel.x));
+        heroPos.z = Math.max(GATE_Z - 1, Math.min(GATE_Z + 24, heroPos.z + heroVel.z));
+        if (!gateOpen && heroPos.z < GATE_Z + 1.2) heroPos.z = GATE_Z + 1.2;
+      } else if (heroPos.z > RAMP_BOT - 1) {
+        heroPos.x = Math.max(-GAP / 2 + 1, Math.min(GAP / 2 - 1, heroPos.x + heroVel.x));
+        heroPos.z += heroVel.z;
+      } else {
+        const next = slideMove(cave, heroPos.x, heroPos.z, heroVel.x, heroVel.z, 0.9);
+        // kill the velocity component into a wall so we don't stutter against it
+        if (next.x === heroPos.x) heroVel.x = 0;
+        if (next.z === heroPos.z) heroVel.z = 0;
+        heroPos.x = next.x; heroPos.z = next.z;
+      }
+      placeHero();
+    }
+  } else {
+    heroVel.x = heroVel.z = 0;
   }
 
   if (moving && t > nextStep) { playFootstep(); nextStep = t + 0.34; }
@@ -959,7 +1005,7 @@ function animate() {
   }
   // the central emblem turns slowly and breathes
   emblem.rotation.y = Math.sin(t * 0.4) * 0.28; // sways gently, logo faces the entrance
-  emblem.position.y = 4.6 + Math.sin(t * 1.1) * 0.2;
+  emblem.position.y = 8 + Math.sin(t * 1.1) * 0.25;
   emblemGlow.material.opacity = 0.14 + Math.abs(Math.sin(t * 1.5)) * 0.1;
 
   // the vault brightens a little as more of it is uncovered
@@ -1010,17 +1056,20 @@ function animate() {
   const dirx = Math.sin(camYaw) * Math.cos(cp);
   const dirz = Math.cos(camYaw) * Math.cos(cp);
   // pull the boom in so the camera never buries itself in the cave rock
-  let dist = CAM_DIST;
+  let want = CAM_DIST;
   if (heroPos.z < RAMP_BOT) {
-    dist = 3;
+    want = 3;
     for (let dd = CAM_DIST; dd >= 3; dd -= 0.5) {
-      if (isWalkable(cave, hero.position.x + dirx * dd, hero.position.z + dirz * dd, 0.2)) { dist = dd; break; }
+      if (isWalkable(cave, hero.position.x + dirx * dd, hero.position.z + dirz * dd, 0.2)) { want = dd; break; }
     }
   }
+  // smooth the boom length so tight corners don't pop the camera
+  camDistCur += (want - camDistCur) * (want < camDistCur ? 0.5 : 0.08);
+  const dist = camDistCur;
   const ox = dirx * dist;
-  // when the boom is short (tight spot) lift the camera so it looks down over
-  // the hero instead of into the wall in front
-  const oy = Math.sin(cp) * dist + 2.4 + (CAM_DIST - dist) * 0.5;
+  // when the boom is short (tight spot) lift the camera a little so it looks
+  // down over the hero instead of into the wall in front
+  const oy = Math.sin(cp) * dist + 2.4 + (CAM_DIST - dist) * 0.28;
   const oz = dirz * dist;
   const desired = new THREE.Vector3(hero.position.x + ox, hero.position.y + oy, hero.position.z + oz);
   camera.position.lerp(desired, settling ? 0.02 : 0.12);

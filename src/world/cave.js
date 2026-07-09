@@ -36,52 +36,107 @@ function distToSeg(px, pz, ax, az, bx, bz) {
   return Math.hypot(px - (ax + dx * t), pz - (az + dz * t));
 }
 
+// The route network is shaped like the Pictoreal mandala-eye logo, so the
+// minimap literally draws the crest. Deterministic (no RNG): a central iris
+// HALL (the emblem), a ring of mandala petals around it, an almond eye-outline
+// corridor, eyelash spokes fanning up-and-right, a lotus crown chamber, and an
+// outer circular border ring. +Z (positive z) is "down toward the entrance".
 export function generateCave(opts = {}) {
-  const {
-    seed = 20281,
-    targetNodes = 44,
-    nicheTarget = 250,
-    minSpace = 38,
-    tunnelW = 7,
-    maxRadius = 195,
-    gateZ = 62,
-  } = opts;
+  const { nicheTarget = 250, tunnelW = 7, gateZ = 66 } = opts;
 
-  const rng = makeRng(seed);
-  const nodes = [{ id: 0, x: 0, z: 0, r: 15, hub: true }];
+  const nodes = [];
   const edges = [];
   const edgeSet = new Set();
+  const add = (x, z, r, extra = {}) => {
+    nodes.push({ id: nodes.length, x, z, r, hub: false, ...extra });
+    return nodes.length - 1;
+  };
   const addEdge = (a, b) => {
     const k = KEY(a, b);
     if (a === b || edgeSet.has(k)) return;
     edgeSet.add(k);
     edges.push({ a, b });
   };
-
-  // grow the network outward from the hub with Poisson-ish spacing
-  let guard = 0;
-  while (nodes.length < targetNodes && guard++ < 9000) {
-    const parent = nodes[Math.floor(rng() * nodes.length)];
-    const ang = rng() * Math.PI * 2;
-    const dist = minSpace + rng() * 22;
-    const x = parent.x + Math.cos(ang) * dist;
-    const z = parent.z + Math.sin(ang) * dist;
-    if (z > 10) continue; // keep the +Z sector clear for the entrance corridor
-    if (Math.hypot(x, z) > maxRadius) continue;
-    if (nodes.some((n) => Math.hypot(n.x - x, n.z - z) < minSpace)) continue;
-    nodes.push({ id: nodes.length, x, z, r: 10 + rng() * 5, hub: false });
-    addEdge(parent.id, nodes.length - 1);
-  }
-
-  // extra loop edges between nearby chambers => interconnected routes
-  for (let i = 0; i < nodes.length; i++) {
-    for (let j = i + 1; j < nodes.length; j++) {
-      const d = Math.hypot(nodes[i].x - nodes[j].x, nodes[i].z - nodes[j].z);
-      if (d < minSpace + 16 && !edgeSet.has(KEY(i, j)) && rng() < 0.4) addEdge(i, j);
+  const nearestByAngle = (list, a) => {
+    let best = list[0], bd = Infinity;
+    for (const q of list) {
+      let d = Math.abs(q.a - a); if (d > Math.PI) d = Math.PI * 2 - d;
+      if (d < bd) { bd = d; best = q; }
     }
+    return best;
+  };
+
+  // --- iris: the central hall with the emblem ---
+  const hub = add(0, 0, 21, { hub: true });
+  const ENTRY_A = Math.PI / 2; // entrance direction (+Z)
+
+  // --- mandala petals: alcoves ringing the iris (gap left toward the entrance) ---
+  const petals = [];
+  const NP = 12;
+  for (let i = 0; i < NP; i++) {
+    const a = (i / NP) * Math.PI * 2;
+    let da = Math.abs(a - ENTRY_A); if (da > Math.PI) da = Math.PI * 2 - da;
+    if (da < 0.62) continue; // wide gap so no petal spoke crosses the entrance mouth
+    const id = add(Math.cos(a) * 33, Math.sin(a) * 33, 7.5, { petal: true });
+    petals.push({ id, a });
+    addEdge(hub, id);
+  }
+  for (let i = 0; i < petals.length; i++) {
+    const j = (i + 1) % petals.length;
+    let da = Math.abs(petals[i].a - petals[j].a); if (da > Math.PI) da = Math.PI * 2 - da;
+    if (da < 1.1) addEdge(petals[i].id, petals[j].id); // ring them, but not across the gap
   }
 
-  const entrance = { x0: -6, x1: 6, z0: 12, z1: gateZ, gateZ };
+  // --- eye almond: the eye-outline corridor loop ---
+  const almond = [];
+  const NA = 18, RX = 66, RZ = 31;
+  for (let i = 0; i < NA; i++) {
+    const a = (i / NA) * Math.PI * 2;
+    almond.push({ id: add(Math.cos(a) * RX, Math.sin(a) * RZ, 8), a });
+  }
+  for (let i = 0; i < NA; i++) addEdge(almond[i].id, almond[(i + 1) % NA].id);
+  // radial spokes (mandala rays) from every other petal out to the almond
+  for (let i = 0; i < petals.length; i += 2) {
+    addEdge(petals[i].id, nearestByAngle(almond, petals[i].a).id);
+  }
+
+  // --- eyelashes: spokes fanning outward up-and-right (a in (-π/2 .. 0)) ---
+  const lashAngles = [-0.28, -0.62, -0.96, -1.3];
+  for (const a of lashAngles) {
+    const base = nearestByAngle(almond, (a + Math.PI * 2) % (Math.PI * 2));
+    const id = add(Math.cos(a) * (RX + 26), Math.sin(a) * (RZ + 30), 7, { lash: true });
+    addEdge(base.id, id);
+  }
+
+  // --- lotus crown: a far chamber above the eye (-Z) ---
+  const topAlmond = nearestByAngle(almond, -Math.PI / 2 + Math.PI * 2);
+  const lotus = add(0, -RZ - 26, 12, { lotus: true });
+  addEdge(topAlmond.id, lotus);
+
+  // --- outer border ring (the logo's circular frame) ---
+  const outer = [];
+  const NB = 16, ORX = 92, ORZ = 60;
+  for (let i = 0; i < NB; i++) {
+    const a = (i / NB) * Math.PI * 2;
+    let da = Math.abs(a - ENTRY_A); if (da > Math.PI) da = Math.PI * 2 - da;
+    if (da < 0.3) continue; // gap toward the entrance
+    outer.push({ id: add(Math.cos(a) * ORX, Math.sin(a) * ORZ, 8), a });
+  }
+  for (let i = 0; i < outer.length; i++) {
+    const j = (i + 1) % outer.length;
+    let da = Math.abs(outer[i].a - outer[j].a); if (da > Math.PI) da = Math.PI * 2 - da;
+    if (da < 0.7) addEdge(outer[i].id, outer[j].id);
+  }
+  // tie the outer ring in: eye corners, lotus, and a couple of lash chambers
+  addEdge(nearestByAngle(almond, 0).id, nearestByAngle(outer, 0).id);
+  addEdge(nearestByAngle(almond, Math.PI).id, nearestByAngle(outer, Math.PI).id);
+  addEdge(lotus, nearestByAngle(outer, -Math.PI / 2 + Math.PI * 2).id);
+  for (const n of nodes.filter((n) => n.lash)) {
+    const a = Math.atan2(n.z, n.x);
+    addEdge(n.id, nearestByAngle(outer, (a + Math.PI * 2) % (Math.PI * 2)).id);
+  }
+
+  const entrance = { x0: -7, x1: 7, z0: 12, z1: gateZ, gateZ };
 
   // ---- niches: page slots along tunnel walls, then chamber perimeters ----
   const niches = [];
@@ -125,7 +180,7 @@ export function generateCave(opts = {}) {
   }
 
   niches.length = Math.min(niches.length, nicheTarget);
-  return { nodes, edges, niches, entrance, tunnelW, gateZ, seed };
+  return { nodes, edges, niches, entrance, tunnelW, gateZ };
 }
 
 export function isWalkable(cave, x, z, pad = 0) {

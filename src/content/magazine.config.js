@@ -22,7 +22,15 @@ export const magazine = {
       "I am the Sutradhar — the one who holds the thread of every tale.",
       "Welcome, traveller, to Pictoreal, Volume Twenty-Eight.",
       "The eye on our seal sees what others pass by. Tonight, so shall you.",
-      "Follow the thread of light. Each glowing stop hides a page to uncover.",
+      "Press E at the gate, and follow me down into the seeing-eye.",
+    ],
+    descend: [
+      "Come — the steps are old, but they hold. Down, into the dark we go.",
+      "Let the lamp lead; what it touches will wake and glow.",
+    ],
+    arrive: [
+      "Here is the heart of the eye. Every path around it hides a page.",
+      "Wander freely, seeker — uncover them all, and the whole will reveal itself.",
     ],
     closingComplete:
       "Every page uncovered, every thread rejoined.\nWhat was scattered now forms one whole. This is Pictoreal.",
