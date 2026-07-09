@@ -42,7 +42,7 @@ function distToSeg(px, pz, ax, az, bx, bz) {
 // corridor, eyelash spokes fanning up-and-right, a lotus crown chamber, and an
 // outer circular border ring. +Z (positive z) is "down toward the entrance".
 export function generateCave(opts = {}) {
-  const { nicheTarget = 250, tunnelW = 9, gateZ = 70 } = opts;
+  const { nicheTarget = 250, tunnelW = 7, gateZ = 70 } = opts;
 
   const nodes = [];
   const edges = [];
@@ -184,7 +184,7 @@ export function generateCave(opts = {}) {
     for (let ni = 1; ni < nodes.length && niches.length < nicheTarget; ni++) {
       const n = nodes[ni];
       const ang = (round / perNode) * Math.PI * 2 + n.id * 0.6;
-      const rr = n.r - 1.3;
+      const rr = n.r - 0.3; // flush against the chamber wall, beyond the hero's reach
       push(n.x + Math.cos(ang) * rr, n.z + Math.sin(ang) * rr, Math.atan2(-Math.cos(ang), -Math.sin(ang)), "chamber");
     }
   }

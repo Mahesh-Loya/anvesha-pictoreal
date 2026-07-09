@@ -3,6 +3,7 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { generateCave, isWalkable, slideMove } from "./world/cave.js";
 import gsap from "gsap";
 import { magazine } from "./content/magazine.config.js";
@@ -444,36 +445,33 @@ for (let s = 0; s < 4; s++) {
   tier.receiveShadow = true;
   scene.add(tier);
 }
-obstacles.push({ x: 0, z: 0, r: 6.5 }); // keep the hero off the central dais/emblem
+obstacles.push({ x: 0, z: 0, r: 7.8 }); // keep the hero off the central dais/emblem
 // the Pictoreal crest, floating and glowing above the dais — the FULL badge
 // (the old circle-cropped version cut off its border + title text)
 const emblem = new THREE.Group();
 const logoTex = new THREE.TextureLoader().load("/pictoreal-logo.png");
 logoTex.colorSpace = THREE.SRGBColorSpace;
 logoTex.anisotropy = 8;
+// the round crest badge (a circle, so no square / black background shows)
 const emblemDisc = new THREE.Mesh(
-  new THREE.PlaneGeometry(4.9, 4.9),
-  new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, toneMapped: false })
+  new THREE.CircleGeometry(2.5, 72),
+  new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, alphaTest: 0.15, side: THREE.DoubleSide, toneMapped: false })
 );
 emblem.add(emblemDisc);
 // a slim gold ring that turns slowly around the crest (the moving element)
-const ring = new THREE.Mesh(new THREE.TorusGeometry(2.75, 0.09, 14, 72), new THREE.MeshStandardMaterial({ color: 0xe0b968, emissive: 0xe0b968, emissiveIntensity: 1.3, metalness: 0.8, roughness: 0.28 }));
+const ring = new THREE.Mesh(new THREE.TorusGeometry(2.62, 0.08, 14, 80), new THREE.MeshStandardMaterial({ color: 0xe0b968, emissive: 0xe0b968, emissiveIntensity: 1.3, metalness: 0.8, roughness: 0.28 }));
 emblem.add(ring);
 // warm halo behind the crest (pulses gently)
-const emblemGlow = new THREE.Mesh(new THREE.CircleGeometry(3.4, 48), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.16, side: THREE.DoubleSide }));
+const emblemGlow = new THREE.Mesh(new THREE.CircleGeometry(3.2, 48), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.14, side: THREE.DoubleSide }));
 emblemGlow.position.z = -0.12;
 emblem.add(emblemGlow);
-emblem.scale.setScalar(2.0); // a large crest that presides over the hall
-emblem.position.set(0, 6.5, 0);
+emblem.scale.setScalar(1.9); // a large crest that presides over the hall
+emblem.position.set(0, 6.8, 0);
 scene.add(emblem);
 // warm light from the crest, bright enough to read the hall on arrival
 const emblemLight = new THREE.PointLight(0xffe0a4, 6, 64, 2);
-emblemLight.position.set(0, 6.5, 0);
+emblemLight.position.set(0, 6.8, 0);
 scene.add(emblemLight);
-// a soft shaft of light tying the crest to the dais below
-const emblemBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 2.6, 9, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xffdca0, transparent: true, opacity: 0.06, side: THREE.DoubleSide }));
-emblemBeam.position.set(0, 4, 0);
-scene.add(emblemBeam);
 
 // ---- route doorways with natural carved-wood signs + wooden direction arrows ----
 const compassName = (ang) => {
@@ -700,19 +698,23 @@ armL.position.set(-0.52, 2.05, 0);
 armL.add(new THREE.Mesh(armGeo, KURTA));
 armL.add(new THREE.Mesh(handGeo, SKIN).translateY(-1.16));
 hero.add(armL);
-const armR = new THREE.Group(); // holds the lamp
+const armR = new THREE.Group(); // right arm, near the lamp
 armR.position.set(0.52, 2.05, -0.1);
 armR.add(new THREE.Mesh(armGeo, KURTA));
 const handR = new THREE.Mesh(handGeo, SKIN); handR.position.y = -1.16; armR.add(handR);
 hero.add(armR);
 
-// the lamp: a small brass oil lamp with a bright flame — the light source
+// the lamp lives on its own rig (not the arm) so it survives if a custom 3D
+// model replaces the primitive body — it stays the game's light source.
+const lampRig = new THREE.Group();
+lampRig.position.set(0.57, 0.9, -0.02);
+hero.add(lampRig);
 const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.5, 8), new THREE.MeshStandardMaterial({ color: 0x8a6a2a, roughness: 0.4, metalness: 0.6 }));
-handle.position.set(0.05, -1.05, 0.12); armR.add(handle);
+handle.position.y = 0.25; lampRig.add(handle);
 const lampBowl = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x9c7a34, roughness: 0.4, metalness: 0.6 }));
-lampBowl.position.set(0.05, -1.32, 0.12); armR.add(lampBowl);
+lampBowl.position.y = -0.02; lampRig.add(lampBowl);
 const diya = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.46, 10), new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffcf5a, emissiveIntensity: 3.2 }));
-diya.position.set(0.05, -1.15, 0.12); armR.add(diya);
+diya.position.y = 0.15; lampRig.add(diya);
 const diyaGlow = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.3 }));
 diya.add(diyaGlow);
 const lamp = new THREE.PointLight(0xffce6a, 14, 55, 2);
@@ -724,6 +726,34 @@ const faceLight = new THREE.PointLight(0xffdca6, 1.6, 5, 2);
 faceLight.position.set(0, 2.6, -1.4);
 headGroup.add(faceLight);
 scene.add(hero);
+
+// ---- optional custom 3D model: drop a rigged file at public/models/sutradhar.glb
+// and it replaces the primitive body (keeping the lamp + all game logic). See MODEL.md.
+const primitiveBody = [...hero.children].filter((c) => c !== lampRig);
+let heroMixer = null;
+new GLTFLoader().load(
+  "/models/sutradhar.glb",
+  (gltf) => {
+    const model = gltf.scene;
+    const box = new THREE.Box3().setFromObject(model);
+    const size = new THREE.Vector3(); box.getSize(size);
+    const s = 3.6 / (size.y || 1); // scale to ~3.6 units tall
+    model.scale.setScalar(s);
+    const min = box.min.clone().multiplyScalar(s);
+    const c = box.getCenter(new THREE.Vector3()).multiplyScalar(s);
+    model.position.set(-c.x, -min.y, -c.z); // feet on the floor, centred
+    model.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+    hero.add(model);
+    primitiveBody.forEach((m) => (m.visible = false)); // hide the placeholder body
+    if (gltf.animations?.length) {
+      heroMixer = new THREE.AnimationMixer(model);
+      heroMixer.clipAction(gltf.animations[0]).play();
+    }
+    console.info("Loaded custom Sutradhar model.");
+  },
+  undefined,
+  () => {} // no model present -> keep the primitive Sutradhar
+);
 
 // hero roams the floor freely in X/Z; y follows the ground (entrance is raised)
 const heroPos = new THREE.Vector3(0, 0, GATE_Z + 8);
@@ -891,6 +921,7 @@ addEventListener("keydown", (e) => {
   if (!isAnyOverlayOpen()) {
     if (k === "i") openContents();
     if (k === "j") openJournal();
+    if (k === "l") applyTheme(!brightMode);
     if (k === "v") {
       presetIdx = (presetIdx + 1) % PRESETS.length;
       camPitch = PRESETS[presetIdx].pitch;
@@ -975,6 +1006,26 @@ addEventListener("resize", () => {
 // ---- HUD (welcome narration fires from begin() after the splash) ----
 mountHud();
 
+// ---- dark (lantern) / bright theme toggle ----
+// Default is the warm LANTERN mode: dim + warm so the lamp still leads the way
+// and it reads as an ancient temple, not a cold crypt. Toggle to a brighter
+// well-lit hall with the 🌙/🔆 button or the L key.
+let brightMode = false;
+function applyTheme(bright) {
+  brightMode = bright;
+  ambient.intensity = bright ? 0.52 : 0.3;
+  hemi.intensity = bright ? 0.6 : 0.36;
+  rim.intensity = bright ? 0.35 : 0.22;
+  scene.fog.density = bright ? 0.009 : 0.018;
+  const btn = document.getElementById("hud-theme");
+  if (btn) btn.textContent = bright ? "🔆" : "🌙";
+}
+applyTheme(false);
+document.getElementById("hud-theme")?.addEventListener("click", () => {
+  applyTheme(!brightMode);
+  document.querySelector("canvas")?.focus();
+});
+
 // ---- minimap ----
 const mm = document.getElementById("minimap");
 const mmx = mm.getContext("2d");
@@ -1032,7 +1083,9 @@ function checkComplete() {
 const clock = new THREE.Clock();
 let nextStep = 0;
 function animate() {
-  const t = clock.getElapsedTime();
+  const dt = clock.getDelta();
+  const t = clock.elapsedTime; // updated by getDelta()
+  if (heroMixer) heroMixer.update(dt);
   const overlay = isAnyOverlayOpen() || !started || settling;
   if (overlay && pointerLocked) document.exitPointerLock();
 
@@ -1139,7 +1192,7 @@ function animate() {
   }
   // the crest faces the entrance and breathes; its gold ring turns slowly
   emblem.rotation.y = Math.sin(t * 0.35) * 0.22; // gentle sway, logo stays readable
-  emblem.position.y = 6.5 + Math.sin(t * 1.1) * 0.22;
+  emblem.position.y = 6.8 + Math.sin(t * 1.1) * 0.22;
   ring.rotation.z = t * 0.5;
   emblemGlow.material.opacity = 0.13 + Math.abs(Math.sin(t * 1.3)) * 0.1;
   emblemGlow.scale.setScalar(1 + Math.sin(t * 1.3) * 0.05);
