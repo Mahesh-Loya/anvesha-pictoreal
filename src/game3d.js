@@ -885,48 +885,10 @@ let enteringHall = false; // scripted stride down through the gate into the hall
 let arrived = false; // has the Sutradhar delivered the arrival narration yet
 const heroVel = { x: 0, z: 0 }; // smoothed movement velocity
 const splash = document.getElementById("splash");
-let introPlaying = false;
-let skipIntro = null;
-
 function begin() {
   if (started) return;
   started = true;
   splash.classList.add("gone");
-  // Play the cinematic intro once (the poem + mandala-eye logo reveal), then
-  // hand off to the in-world swoop. If the video is missing or autoplay is
-  // blocked, fall straight through to the world.
-  playIntroThen(startWorld);
-}
-
-// the cinematic overlay: plays /intro.mp4 full-screen, then calls next()
-function playIntroThen(next) {
-  const intro = document.getElementById("intro");
-  const vid = document.getElementById("intro-video");
-  if (!intro || !vid) return next();
-  let done = false;
-  const finish = () => {
-    if (done) return;
-    done = true;
-    introPlaying = false;
-    skipIntro = null;
-    try { vid.pause(); } catch {}
-    intro.classList.add("gone");
-    setTimeout(() => { intro.style.display = "none"; }, 750);
-    next();
-  };
-  introPlaying = true;
-  skipIntro = finish;
-  intro.style.display = "flex";
-  intro.classList.remove("gone");
-  vid.currentTime = 0;
-  vid.addEventListener("ended", finish, { once: true });
-  vid.addEventListener("error", finish, { once: true });
-  document.getElementById("intro-skip")?.addEventListener("click", (e) => { e.stopPropagation(); finish(); }, { once: true });
-  const p = vid.play();
-  if (p && p.catch) p.catch(finish); // autoplay blocked → straight to the world
-}
-
-function startWorld() {
   startAmbientMusic();
   // dramatic swoop-in: place the camera high and far; the follow-lerp glides
   // it down to the Sutradhar at the well's mouth while the Sutradhar speaks
@@ -947,10 +909,6 @@ addEventListener("keydown", (e) => {
   keys[k] = true;
   if (!started) {
     if (k === " " || k === "enter") begin();
-    return;
-  }
-  if (introPlaying) {
-    if (k === " " || k === "enter" || k === "escape") skipIntro?.();
     return;
   }
   if (k === " " || k === "enter" || k === "e") {
