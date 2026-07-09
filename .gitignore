@@ -3,5 +3,6 @@ dist/
 .DS_Store
 .worktrees/
 
-# large local art sources
+# large local art / video sources (encoded outputs live in public/)
 *.psd
+WhatsApp Video*.mp4

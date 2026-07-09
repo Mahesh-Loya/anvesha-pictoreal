@@ -531,6 +531,40 @@
 #controls-hint b { color: var(--silver); font-weight: 600; }
 
 /* 3D opening splash with the brand logo */
+#intro {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.7s ease;
+}
+#intro.gone { opacity: 0; pointer-events: none; }
+#intro video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+#intro-skip {
+  position: absolute;
+  bottom: 26px;
+  right: 26px;
+  padding: 9px 18px;
+  font-family: Georgia, serif;
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: var(--silver, #d8d8d0);
+  background: rgba(10, 20, 18, 0.55);
+  border: 1px solid rgba(210, 210, 200, 0.35);
+  border-radius: 22px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s, color 0.2s;
+}
+#intro-skip:hover { background: rgba(20, 40, 34, 0.85); color: #fff; }
+
 #splash {
   position: fixed;
   inset: 0;
