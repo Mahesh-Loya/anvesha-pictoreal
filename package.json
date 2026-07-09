@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "gen:placeholders": "node scripts/generate-placeholder-content.mjs"
+    "gen:placeholders": "node scripts/generate-placeholder-content.mjs",
+    "voice:generate": "node scripts/generate-voice.mjs"
   },
   "dependencies": {
     "gsap": "^3.12.0",

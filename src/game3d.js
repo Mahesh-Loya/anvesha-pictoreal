@@ -39,8 +39,8 @@ const currentIndex = () => {
 
 // ---- scene / renderer ----
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x06201b);
-scene.fog = new THREE.FogExp2(0x06201b, 0.014);
+scene.background = new THREE.Color(0x241a12); // warm sandstone dark, not cold green
+scene.fog = new THREE.FogExp2(0x241a12, 0.011);
 
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 300);
 
@@ -59,13 +59,13 @@ composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.85, 0.7, 0.8);
 composer.addPass(bloom);
 
-// Dark world: only a whisper of fill so the Sutradhar's torch is the light
-// that reveals the space and the hidden pages as you move.
-const ambient = new THREE.AmbientLight(0x2a6f63, 0.34);
+// Warm, torch-lit ancient temple (not a cold horror crypt): a soft amber fill
+// keeps the space inviting while the Sutradhar's lamp still leads the way.
+const ambient = new THREE.AmbientLight(0xffe0b0, 0.52);
 scene.add(ambient);
-const hemi = new THREE.HemisphereLight(0x36786a, 0x08120e, 0.4);
+const hemi = new THREE.HemisphereLight(0xffcf8a, 0x3a2a18, 0.6);
 scene.add(hemi);
-const rim = new THREE.DirectionalLight(0x8fd8c8, 0.1);
+const rim = new THREE.DirectionalLight(0xffe6bf, 0.35);
 rim.position.set(-10, 20, 8);
 scene.add(rim);
 
@@ -445,35 +445,33 @@ for (let s = 0; s < 4; s++) {
   scene.add(tier);
 }
 obstacles.push({ x: 0, z: 0, r: 6.5 }); // keep the hero off the central dais/emblem
-// the 3D Pictoreal logo emblem, rotating and glowing above the dais
+// the Pictoreal crest, floating and glowing above the dais — the FULL badge
+// (the old circle-cropped version cut off its border + title text)
 const emblem = new THREE.Group();
 const logoTex = new THREE.TextureLoader().load("/pictoreal-logo.png");
 logoTex.colorSpace = THREE.SRGBColorSpace;
+logoTex.anisotropy = 8;
 const emblemDisc = new THREE.Mesh(
-  new THREE.CircleGeometry(2.3, 48),
-  new THREE.MeshBasicMaterial({ map: logoTex, transparent: true })
+  new THREE.PlaneGeometry(4.9, 4.9),
+  new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, toneMapped: false })
 );
-const emblemBack = new THREE.Mesh(
-  new THREE.CircleGeometry(2.3, 48),
-  new THREE.MeshBasicMaterial({ map: logoTex, transparent: true })
-);
-emblemBack.rotation.y = Math.PI;
-emblem.add(emblemDisc, emblemBack);
-// a gold ring frame + glow behind
-const ring = new THREE.Mesh(new THREE.TorusGeometry(2.45, 0.12, 12, 48), new THREE.MeshStandardMaterial({ color: 0xc9a24b, emissive: 0xc9a24b, emissiveIntensity: 1.2, metalness: 0.7, roughness: 0.3 }));
+emblem.add(emblemDisc);
+// a slim gold ring that turns slowly around the crest (the moving element)
+const ring = new THREE.Mesh(new THREE.TorusGeometry(2.75, 0.09, 14, 72), new THREE.MeshStandardMaterial({ color: 0xe0b968, emissive: 0xe0b968, emissiveIntensity: 1.3, metalness: 0.8, roughness: 0.28 }));
 emblem.add(ring);
-const emblemGlow = new THREE.Mesh(new THREE.CircleGeometry(3.2, 40), new THREE.MeshBasicMaterial({ color: 0x1f8f7c, transparent: true, opacity: 0.18 }));
-emblemGlow.position.z = -0.1;
+// warm halo behind the crest (pulses gently)
+const emblemGlow = new THREE.Mesh(new THREE.CircleGeometry(3.4, 48), new THREE.MeshBasicMaterial({ color: 0xffd27a, transparent: true, opacity: 0.16, side: THREE.DoubleSide }));
+emblemGlow.position.z = -0.12;
 emblem.add(emblemGlow);
-emblem.scale.setScalar(2.3); // a large glowing eye that dominates the hall
-emblem.position.set(0, 8, 0);
+emblem.scale.setScalar(2.0); // a large crest that presides over the hall
+emblem.position.set(0, 6.5, 0);
 scene.add(emblem);
-// teal light from the emblem, bright enough to read the hall on arrival
-const emblemLight = new THREE.PointLight(0x5fe8cf, 6, 60, 2);
-emblemLight.position.set(0, 8, 0);
+// warm light from the crest, bright enough to read the hall on arrival
+const emblemLight = new THREE.PointLight(0xffe0a4, 6, 64, 2);
+emblemLight.position.set(0, 6.5, 0);
 scene.add(emblemLight);
-// a shaft of light tying the eye to the dais below
-const emblemBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 2.6, 9, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0x3fd8bf, transparent: true, opacity: 0.07, side: THREE.DoubleSide }));
+// a soft shaft of light tying the crest to the dais below
+const emblemBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 2.6, 9, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xffdca0, transparent: true, opacity: 0.06, side: THREE.DoubleSide }));
 emblemBeam.position.set(0, 4, 0);
 scene.add(emblemBeam);
 
@@ -1139,14 +1137,16 @@ function animate() {
   for (const l of lanterns) {
     l.mesh.material.emissiveIntensity = 1.8 + Math.sin(t * 8 + l.phase) * 0.5 + Math.sin(t * 23 + l.phase) * 0.2;
   }
-  // the central emblem turns slowly and breathes
-  emblem.rotation.y = Math.sin(t * 0.4) * 0.28; // sways gently, logo faces the entrance
-  emblem.position.y = 8 + Math.sin(t * 1.1) * 0.25;
-  emblemGlow.material.opacity = 0.14 + Math.abs(Math.sin(t * 1.5)) * 0.1;
+  // the crest faces the entrance and breathes; its gold ring turns slowly
+  emblem.rotation.y = Math.sin(t * 0.35) * 0.22; // gentle sway, logo stays readable
+  emblem.position.y = 6.5 + Math.sin(t * 1.1) * 0.22;
+  ring.rotation.z = t * 0.5;
+  emblemGlow.material.opacity = 0.13 + Math.abs(Math.sin(t * 1.3)) * 0.1;
+  emblemGlow.scale.setScalar(1 + Math.sin(t * 1.3) * 0.05);
 
-  // the vault brightens a little as more of it is uncovered
+  // the hall warms as more of it is uncovered (bright amber -> deep sandstone)
   const depth = 1 - getSurfacedCount() / Math.max(1, STOPS.length);
-  const fogC = new THREE.Color(0x0a2620).lerp(new THREE.Color(0x05120f), depth);
+  const fogC = new THREE.Color(0x3a2c1a).lerp(new THREE.Color(0x1e150d), depth);
   scene.fog.color.copy(fogC);
   scene.background.copy(fogC);
 
