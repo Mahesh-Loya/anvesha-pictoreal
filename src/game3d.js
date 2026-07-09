@@ -2,6 +2,8 @@ import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { generateCave, isWalkable, slideMove } from "./world/cave.js";
 import gsap from "gsap";
 import { magazine } from "./content/magazine.config.js";
 import { state } from "./state.js";
@@ -67,8 +69,9 @@ const rim = new THREE.DirectionalLight(0x8fd8c8, 0.1);
 rim.position.set(-10, 20, 8);
 scene.add(rim);
 
-// ---- procedural stone textures (canvas) so surfaces look carved, not flat ----
-function makeStoneTexture(r, g, b, strata = true) {
+// ---- procedural ANCIENT stone: weathered, mossy, faintly carved ----
+function makeStoneTexture(r, g, b, opts = {}) {
+  const { moss = true, carve = true, strata = true } = opts;
   const cv = document.createElement("canvas");
   cv.width = cv.height = 256;
   const x = cv.getContext("2d");
@@ -76,40 +79,68 @@ function makeStoneTexture(r, g, b, strata = true) {
   x.fillRect(0, 0, 256, 256);
   if (strata) {
     for (let i = 0; i < 26; i++) {
-      const y = (i / 26) * 256 + (Math.sin(i * 3.7) * 4);
-      const d = 0.75 + (i % 3) * 0.12;
-      x.fillStyle = `rgba(${r * d | 0},${g * d | 0},${b * d | 0},0.5)`;
+      const y = (i / 26) * 256 + Math.sin(i * 3.7) * 4;
+      const d = 0.72 + (i % 3) * 0.12;
+      x.fillStyle = `rgba(${(r * d) | 0},${(g * d) | 0},${(b * d) | 0},0.5)`;
       x.fillRect(0, y, 256, 3 + (i % 2));
     }
   }
+  // cracks (thin dark meandering lines)
+  x.strokeStyle = "rgba(20,16,10,0.5)";
+  for (let i = 0; i < 6; i++) {
+    x.lineWidth = 1 + Math.random();
+    x.beginPath();
+    let cx = Math.random() * 256, cy = Math.random() * 256;
+    x.moveTo(cx, cy);
+    for (let k = 0; k < 6; k++) { cx += (Math.random() - 0.5) * 60; cy += (Math.random() - 0.4) * 50; x.lineTo(cx, cy); }
+    x.stroke();
+  }
+  // faint carved motif (concentric petals — ancient inscription feel)
+  if (carve) {
+    x.strokeStyle = "rgba(30,24,14,0.35)";
+    x.lineWidth = 1.5;
+    for (const [ox, oy] of [[64, 64], [192, 192]]) {
+      for (let rr = 6; rr < 26; rr += 6) {
+        x.beginPath();
+        for (let a = 0; a <= 12; a++) { const ang = (a / 12) * Math.PI * 2; const rad = rr + Math.sin(a * 6) * 2; const px = ox + Math.cos(ang) * rad, py = oy + Math.sin(ang) * rad; a ? x.lineTo(px, py) : x.moveTo(px, py); }
+        x.stroke();
+      }
+    }
+  }
   // mineral speckle
-  for (let i = 0; i < 9000; i++) {
-    const px = Math.random() * 256, py = Math.random() * 256;
-    const v = (Math.random() - 0.5) * 60;
-    x.fillStyle = `rgba(${Math.max(0, r + v) | 0},${Math.max(0, g + v) | 0},${Math.max(0, b + v) | 0},0.35)`;
-    x.fillRect(px, py, 2, 2);
+  for (let i = 0; i < 8000; i++) {
+    const v = (Math.random() - 0.5) * 55;
+    x.fillStyle = `rgba(${Math.max(0, r + v) | 0},${Math.max(0, g + v) | 0},${Math.max(0, b + v) | 0},0.3)`;
+    x.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
+  }
+  // greenish algae / moss creeping in patches + downward streaks
+  if (moss) {
+    for (let i = 0; i < 26; i++) {
+      const mx = Math.random() * 256, my = Math.random() * 256, rad = 10 + Math.random() * 34;
+      const grd = x.createRadialGradient(mx, my, 0, mx, my, rad);
+      grd.addColorStop(0, "rgba(60,96,44,0.5)");
+      grd.addColorStop(1, "rgba(60,96,44,0)");
+      x.fillStyle = grd;
+      x.beginPath(); x.arc(mx, my, rad, 0, 7); x.fill();
+    }
+    for (let i = 0; i < 10; i++) {
+      x.fillStyle = "rgba(40,70,40,0.3)";
+      x.fillRect(Math.random() * 256, Math.random() * 120, 3 + Math.random() * 4, 60 + Math.random() * 90);
+    }
   }
   const tex = new THREE.CanvasTexture(cv);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
-function stoneMat(r, g, b, rep = 1) {
-  const map = makeStoneTexture(r, g, b);
+function stoneMat(r, g, b, rep = 1, opts = {}) {
+  const map = makeStoneTexture(r, g, b, opts);
   map.repeat.set(rep, rep);
-  const bump = makeStoneTexture(r, g, b, false);
+  const bump = makeStoneTexture(r, g, b, { moss: false, carve: true, strata: false });
   bump.repeat.set(rep, rep);
-  return new THREE.MeshStandardMaterial({ map, bumpMap: bump, bumpScale: 0.6, roughness: 0.95, metalness: 0.03 });
+  return new THREE.MeshStandardMaterial({ map, bumpMap: bump, bumpScale: 0.7, roughness: 0.96, metalness: 0.03 });
 }
 
-// ---- descent path helpers ----
-const STEP_Y = 3.2; // how far each stop drops
-const STEP_Z = 5.5; // how far each stop recedes
-const SIDE = 4.2; // tablet offset to the side of the path
-function pathAt(p) {
-  return new THREE.Vector3(0, -p * STEP_Y, p * STEP_Z);
-}
-
-// ---- stepwell geometry along the path ----
+// ---- materials ----
 // warm carved sandstone (reads beautifully under the warm torch, cool in shadow)
 const stone = stoneMat(150, 120, 84, 2);
 const stoneDark = stoneMat(120, 96, 66, 2);
@@ -118,41 +149,163 @@ const gold = new THREE.MeshStandardMaterial({ color: 0xc9a24b, roughness: 0.5, m
 const lanternMat = new THREE.MeshStandardMaterial({ color: 0xffdd88, emissive: 0xffb347, emissiveIntensity: 2.2 });
 const lanterns = []; // {mesh, phase}
 
-const pillarGeo = new THREE.CylinderGeometry(0.5, 0.6, STEP_Y + 3, 10);
-const capGeo = new THREE.BoxGeometry(1.4, 0.5, 1.4);
-const lanternGeo = new THREE.SphereGeometry(0.32, 12, 12);
+const pillarGeo = new THREE.CylinderGeometry(0.55, 0.68, 11, 12);
+const capGeo = new THREE.BoxGeometry(1.6, 0.6, 1.6);
+const lanternGeo = new THREE.SphereGeometry(0.36, 12, 12);
+const WALLH = 9; // cave wall height
 
-// ---- open explorable vault (the "map"): a dark hall you roam with your torch,
-// a sunken stepwell shrine at its heart, the pages ringed around it ----
-const HALL = 20;
+// ---- the cave network (organic graph of chambers + tunnels) ----
+const cave = generateCave();
+const GATE_Z = cave.gateZ; // surface gate sits at the mouth of the entrance corridor
+const GAP = 12; // width of the entrance corridor opening
+const ENTRY_Y = 11; // surface height; the corridor ramps down to the cave floor (y=0)
+const RAMP_BOT = 15; // where the ramp meets the hub floor
+const GY = ENTRY_Y;
+function groundHeightAt(z) {
+  if (z >= GATE_Z) return ENTRY_Y;
+  if (z <= RAMP_BOT) return 0;
+  return ENTRY_Y * (z - RAMP_BOT) / (GATE_Z - RAMP_BOT);
+}
+// how deep is the map — used for fog, minimap scale, dust
+const MAP_EXTENT = Math.max(...cave.nodes.map((n) => Math.hypot(n.x, n.z))) + 20;
 
-const floorMat = stoneMat(105, 84, 58, 10);
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(HALL * 2 + 12, HALL * 2 + 12), floorMat);
-floor.rotation.x = -Math.PI / 2;
-floor.receiveShadow = true;
-scene.add(floor);
-
-// boundary walls (the +Z side is left open for the entrance gate)
-for (const [x, z, w, d] of [
-  [0, -HALL - 3, HALL * 2 + 12, 2],
-  [-HALL - 3, 0, 2, HALL * 2 + 12],
-  [HALL + 3, 0, 2, HALL * 2 + 12],
-]) {
-  const wl = new THREE.Mesh(new THREE.BoxGeometry(w, 9, d), stone);
-  wl.position.set(x, 4, z);
-  wl.receiveShadow = true;
-  scene.add(wl);
+// neighbour directions per chamber (so we can leave openings where tunnels meet)
+const neighbourAngles = cave.nodes.map(() => []);
+for (const e of cave.edges) {
+  const a = cave.nodes[e.a], b = cave.nodes[e.b];
+  neighbourAngles[e.a].push(Math.atan2(b.z - a.z, b.x - a.x));
+  neighbourAngles[e.b].push(Math.atan2(a.z - b.z, a.x - b.x));
 }
 
-// ---- the entrance: a mysterious well-gate you open, then stairs down ----
-const GATE_Z = HALL + 3; // 23
-const GAP = 8;
+// ---- build the cave shell as a few MERGED meshes (one draw call each) ----
+const floorParts = [];
+const wallParts = [];
+const archParts = [];
+const angDiff = (a, b) => { let d = Math.abs(a - b) % (Math.PI * 2); return d > Math.PI ? Math.PI * 2 - d : d; };
+function boxAt(w, h, d, x, y, z, ry) {
+  const g = new THREE.BoxGeometry(w, h, d);
+  if (ry) g.rotateY(ry);
+  g.translate(x, y, z);
+  return g;
+}
 
-// ground height: raised entrance court -> stairs -> hall floor at 0
-function groundHeightAt(z) {
-  if (z >= GATE_Z + 1) return 3;
-  if (z >= 14) return 3 * (z - 14) / (GATE_Z + 1 - 14);
-  return 0;
+// chamber floors (discs) + perimeter walls with openings toward tunnels
+for (const n of cave.nodes) {
+  const disc = new THREE.CircleGeometry(n.r + 1.5, 40).rotateX(-Math.PI / 2);
+  disc.translate(n.x, 0.02, n.z);
+  floorParts.push(disc);
+  const SEG = n.hub ? 30 : 20;
+  const half = Math.asin(Math.min(0.95, (cave.tunnelW + 1.5) / n.r)) + 0.14;
+  for (let s = 0; s < SEG; s++) {
+    const ang = (s / SEG) * Math.PI * 2;
+    // leave a gap where a tunnel (or, at the hub, the entrance) connects
+    const skips = neighbourAngles[n.id].slice();
+    if (n.hub) skips.push(Math.PI / 2); // entrance faces +Z
+    if (skips.some((t) => angDiff(ang, t) < half)) continue;
+    const R = n.r + 0.9;
+    const arc = ((Math.PI * 2) / SEG) * R * 1.15;
+    const tang = Math.atan2(-Math.cos(ang), Math.sin(ang)); // wall runs tangentially
+    wallParts.push(boxAt(arc, WALLH, 1.4, n.x + Math.cos(ang) * R, WALLH / 2, n.z + Math.sin(ang) * R, tang));
+  }
+}
+
+// tunnel floors + side walls + rib arches
+for (const e of cave.edges) {
+  const a = cave.nodes[e.a], b = cave.nodes[e.b];
+  const dx = b.x - a.x, dz = b.z - a.z;
+  const len = Math.hypot(dx, dz) || 1;
+  const ux = dx / len, uz = dz / len;      // along the tunnel
+  const px = -uz, pz = ux;                  // perpendicular
+  const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+  const ry = Math.atan2(-uz, ux);
+  floorParts.push(boxAt(len, 0.1, cave.tunnelW * 2, mx, 0.05, mz, ry));
+  for (const side of [-1, 1]) {
+    const off = (cave.tunnelW + 0.7) * side;
+    wallParts.push(boxAt(len, WALLH, 1.3, mx + px * off, WALLH / 2, mz + pz * off, ry));
+  }
+  // rib arches across the tunnel (cave feel without capping the camera view)
+  const nribs = Math.max(1, Math.floor(len / 10));
+  for (let k = 1; k <= nribs; k++) {
+    const s = (len * k) / (nribs + 1);
+    const cx = a.x + ux * s, cz = a.z + uz * s;
+    archParts.push(boxAt(cave.tunnelW * 2 + 2.4, 1.1, 1.1, cx, WALLH - 0.4, cz, ry + Math.PI / 2));
+  }
+}
+
+const caveShell = new THREE.Mesh(mergeGeometries(wallParts), stone);
+caveShell.receiveShadow = true;
+scene.add(caveShell);
+const caveFloor = new THREE.Mesh(mergeGeometries(floorParts), stoneMat(112, 90, 62, 3));
+caveFloor.receiveShadow = true;
+scene.add(caveFloor);
+const caveArches = new THREE.Mesh(mergeGeometries(archParts), stoneDark);
+scene.add(caveArches);
+
+// a lantern in most chambers as a warm landmark (emissive; bloom sells the flame)
+for (const n of cave.nodes) {
+  if (n.hub) continue;
+  const lantern = new THREE.Mesh(lanternGeo, lanternMat.clone());
+  lantern.position.set(n.x, 4.2, n.z);
+  scene.add(lantern);
+  lanterns.push({ mesh: lantern, phase: n.id * 0.7 });
+}
+
+// carved relief panels (elephants, peacocks, PICTOREAL) at chamber mouths
+function makeCarving(kind, seedTxt) {
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 256;
+  const x = cv.getContext("2d");
+  x.fillStyle = "#4c3d26"; x.fillRect(0, 0, 256, 256);
+  for (let i = 0; i < 5000; i++) { const v = (Math.random() - 0.5) * 40; x.fillStyle = `rgba(${(90 + v) | 0},${(74 + v) | 0},${(48 + v) | 0},0.35)`; x.fillRect(Math.random() * 256, Math.random() * 256, 2, 2); }
+  x.strokeStyle = "rgba(20,14,6,0.55)"; x.lineWidth = 3; x.strokeRect(10, 10, 236, 236);
+  x.save(); x.translate(128, 140); x.strokeStyle = "rgba(22,15,7,0.7)"; x.fillStyle = "rgba(28,20,10,0.55)"; x.lineWidth = 3;
+  if (kind === "elephant") {
+    x.beginPath();
+    x.moveTo(-60, 30); x.quadraticCurveTo(-70, -30, -30, -45); x.quadraticCurveTo(20, -60, 55, -30);
+    x.quadraticCurveTo(72, -12, 66, 30); x.lineTo(50, 30); x.lineTo(46, 6); x.lineTo(30, 6); x.lineTo(28, 30);
+    x.lineTo(-24, 30); x.lineTo(-26, 6); x.lineTo(-42, 6); x.lineTo(-46, 30); x.closePath(); x.fill(); x.stroke();
+    x.beginPath(); x.moveTo(-60, -20); x.quadraticCurveTo(-92, 0, -78, 42); x.stroke(); // trunk
+    x.beginPath(); x.ellipse(-44, -22, 20, 24, 0, 0, 7); x.stroke(); // ear
+  } else if (kind === "peacock") {
+    x.beginPath(); x.ellipse(0, -6, 58, 46, 0, Math.PI, Math.PI * 2); x.stroke(); // fan
+    for (let a = -3; a <= 3; a++) { x.beginPath(); x.moveTo(0, 4); const ax = a * 16; x.lineTo(ax, -52); x.stroke(); x.beginPath(); x.arc(ax, -52, 5, 0, 7); x.fill(); }
+    x.beginPath(); x.moveTo(0, 6); x.quadraticCurveTo(10, 34, 4, 54); x.stroke(); // body
+    x.beginPath(); x.arc(4, 58, 8, 0, 7); x.stroke(); // head
+  } else {
+    x.restore(); x.save(); x.translate(128, 128);
+    x.textAlign = "center"; x.fillStyle = "rgba(24,16,8,0.8)"; x.font = "bold 40px Georgia";
+    x.fillText("PICTOREAL", 0, -6); x.font = "20px Georgia"; x.fillText("· VOL 28 ·", 0, 30);
+    x.font = "italic 18px Georgia"; x.fillText(seedTxt || "ANVESHA", 0, 66);
+  }
+  x.restore();
+  const t = new THREE.CanvasTexture(cv);
+  return t;
+}
+const carveKinds = ["elephant", "peacock", "pictoreal"];
+const sections = magazine.tiers.map((t) => t.section);
+for (const n of cave.nodes) {
+  if (n.hub) continue;
+  const kind = carveKinds[n.id % 3];
+  const tex = makeCarving(kind, sections[n.id % sections.length]);
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }));
+  // place on the perimeter roughly opposite the first tunnel so it faces inward
+  const base = (neighbourAngles[n.id][0] ?? 0) + Math.PI;
+  panel.position.set(n.x + Math.cos(base) * (n.r - 0.2), 3.2, n.z + Math.sin(base) * (n.r - 0.2));
+  panel.rotation.y = Math.atan2(-Math.cos(base), -Math.sin(base));
+  scene.add(panel);
+}
+
+// ---- entrance: open-air terrace + carved gate + a long covered stair descent ----
+const sky = new THREE.Mesh(new THREE.SphereGeometry(MAP_EXTENT + 120, 32, 16), new THREE.MeshBasicMaterial({ color: 0x0a1f24, side: THREE.BackSide }));
+scene.add(sky);
+const terrace = new THREE.Mesh(new THREE.BoxGeometry(52, 2, 30), stoneDark);
+terrace.position.set(0, GY - 1, GATE_Z + 13);
+terrace.receiveShadow = true;
+scene.add(terrace);
+for (const [rx, rz, h] of [[-20, GATE_Z + 18, 6], [21, GATE_Z + 10, 4.5], [-24, GATE_Z + 6, 7.5], [17, GATE_Z + 21, 5], [25, GATE_Z + 19, 3.5]]) {
+  const rp = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.9, h, 10), pillarMat);
+  rp.position.set(rx, GY + h / 2, rz); rp.rotation.z = (rx % 3 - 1) * 0.06; rp.castShadow = true;
+  scene.add(rp);
 }
 
 // carved inscription texture (club name + events) — looks engraved in stone
@@ -166,105 +319,85 @@ function makeInscription() {
     x.fillStyle = `rgba(${(96 + v) | 0},${(78 + v) | 0},${(50 + v) | 0},0.4)`;
     x.fillRect(Math.random() * 512, Math.random() * 512, 2, 2);
   }
-  x.textAlign = "center";
-  x.fillStyle = "#26190c";
-  x.font = "bold 38px Georgia";
+  x.textAlign = "center"; x.fillStyle = "#26190c"; x.font = "bold 38px Georgia";
   x.fillText(magazine.club.name, 256, 70);
   x.font = "22px Georgia";
   magazine.club.lines.forEach((ln, i) => x.fillText(ln, 256, 135 + i * 40));
-  // faint highlight to fake engraving depth
-  x.fillStyle = "rgba(240,230,210,0.12)";
-  x.font = "bold 38px Georgia";
-  x.fillText(magazine.club.name, 255, 69);
+  x.fillStyle = "rgba(240,230,210,0.12)"; x.font = "bold 38px Georgia"; x.fillText(magazine.club.name, 255, 69);
   return new THREE.CanvasTexture(cv);
 }
-const inscriptionMat = new THREE.MeshStandardMaterial({ map: makeInscription(), roughness: 0.95, bumpMap: makeInscription(), bumpScale: 0.4 });
-
-// gate facade: two wall segments flanking the gap, a lintel, inscriptions
-const segW = (HALL * 2 + 12 - GAP) / 2;
+const inscriptionMat = new THREE.MeshStandardMaterial({ map: makeInscription(), roughness: 0.95 });
+const segW = 10;
 for (const sgn of [-1, 1]) {
-  const seg = new THREE.Mesh(new THREE.BoxGeometry(segW, 10, 2.4), stone);
-  seg.position.set(sgn * (GAP / 2 + segW / 2), 5, GATE_Z);
+  const seg = new THREE.Mesh(new THREE.BoxGeometry(segW, 13, 2.6), stone);
+  seg.position.set(sgn * (GAP / 2 + segW / 2), GY + 6.5, GATE_Z);
   seg.receiveShadow = true; seg.castShadow = true;
   scene.add(seg);
-  const panel = new THREE.Mesh(new THREE.PlaneGeometry(segW - 1.5, 6), inscriptionMat);
-  panel.position.set(sgn * (GAP / 2 + segW / 2), 5.2, GATE_Z + 1.25);
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(segW - 1.5, 7.5), inscriptionMat);
+  panel.position.set(sgn * (GAP / 2 + segW / 2), GY + 6.5, GATE_Z + 1.35);
   scene.add(panel);
 }
-const lintel = new THREE.Mesh(new THREE.BoxGeometry(GAP + 4, 2.2, 3), stone);
-lintel.position.set(0, 9, GATE_Z);
+const lintel = new THREE.Mesh(new THREE.BoxGeometry(GAP + segW * 2 + 2, 2.8, 3.2), stone);
+lintel.position.set(0, GY + 12, GATE_Z);
 scene.add(lintel);
-// glowing keystone eye above the gate
-const keystone = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xfcde5a, emissiveIntensity: 2 }));
-keystone.position.set(0, 9, GATE_Z + 1.4);
-keystone.scale.set(1.6, 1, 0.6);
+const keystone = new THREE.Mesh(new THREE.SphereGeometry(0.85, 18, 14), new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xfcde5a, emissiveIntensity: 2 }));
+keystone.position.set(0, GY + 12, GATE_Z + 1.7); keystone.scale.set(1.8, 1, 0.6);
 scene.add(keystone);
 
-// two doors hinged at the outer edges of the gap
 const doorMat = new THREE.MeshStandardMaterial({ color: 0x3f2a16, roughness: 0.7, metalness: 0.2 });
 function makeDoor(sgn) {
   const pivot = new THREE.Group();
-  pivot.position.set(sgn * (GAP / 2), 0, GATE_Z);
-  const leaf = new THREE.Mesh(new THREE.BoxGeometry(GAP / 2, 7.5, 0.5), doorMat);
-  leaf.position.set(-sgn * (GAP / 4), 3.9, 0);
-  // gold studs
-  for (let r = 0; r < 3; r++) for (let cc = 0; cc < 2; cc++) {
-    const stud = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), gold);
-    stud.position.set(-sgn * (0.6 + cc * 1.6), 2 + r * 2, 0.3);
+  pivot.position.set(sgn * (GAP / 2), GY, GATE_Z);
+  const leaf = new THREE.Mesh(new THREE.BoxGeometry(GAP / 2, 10, 0.5), doorMat);
+  leaf.position.set(-sgn * (GAP / 4), 5, 0);
+  for (let r = 0; r < 4; r++) for (let cc = 0; cc < 2; cc++) {
+    const stud = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 8), gold);
+    stud.position.set(-sgn * (0.8 + cc * 2.2), 2 + r * 2.2, 0.3);
     leaf.add(stud);
   }
-  pivot.add(leaf);
-  scene.add(pivot);
-  return pivot;
+  pivot.add(leaf); scene.add(pivot); return pivot;
 }
 const doorL = makeDoor(-1);
 const doorR = makeDoor(1);
 let gateOpen = false;
 let gateSwing = 0;
 
-// raised entrance courtyard floor + side walls + descent steps into the hall
-const court = new THREE.Mesh(new THREE.BoxGeometry(GAP + 10, 1, 12), stoneDark);
-court.position.set(0, 2.5, GATE_Z + 6);
-court.receiveShadow = true;
-scene.add(court);
-for (const sgn of [-1, 1]) {
-  const w2 = new THREE.Mesh(new THREE.BoxGeometry(1.5, 8, 12), stone);
-  w2.position.set(sgn * (GAP / 2 + 5), 6, GATE_Z + 6);
-  scene.add(w2);
-}
-const backWall = new THREE.Mesh(new THREE.BoxGeometry(GAP + 11, 12, 1.5), stone);
-backWall.position.set(0, 6, GATE_Z + 12);
-scene.add(backWall);
-// descent steps (visual) from the gate down into the hall
-for (let s = 0; s < 6; s++) {
-  const f = s / 6;
-  const step = new THREE.Mesh(new THREE.BoxGeometry(GAP, 0.6, 1.6), s % 2 ? stoneDark : stone);
-  step.position.set(0, 3 - 3 * (s / 5) - 0.3, 14 + (GATE_Z + 1 - 14) * (1 - f));
-  step.receiveShadow = true;
+// the covered stair descent: steps + side walls following the ramp down to the hub
+const NSTEPS = 30;
+for (let s = 0; s < NSTEPS; s++) {
+  const f = s / (NSTEPS - 1);
+  const z = GATE_Z - f * (GATE_Z - RAMP_BOT);
+  const y = GY - f * GY;
+  const step = new THREE.Mesh(new THREE.BoxGeometry(GAP + 1, 0.65, (GATE_Z - RAMP_BOT) / NSTEPS + 0.5), s % 2 ? stoneDark : stone);
+  step.position.set(0, y - 0.32, z); step.receiveShadow = true;
   scene.add(step);
 }
+// side walls + a covered ceiling over the descent (so the hub is a reveal at the bottom)
+const corrParts = [];
+for (let s = 0; s <= NSTEPS; s += 2) {
+  const f = s / NSTEPS;
+  const z = GATE_Z - f * (GATE_Z - RAMP_BOT);
+  const y = GY - f * GY;
+  for (const sgn of [-1, 1]) corrParts.push(boxAt(3, WALLH, GAP, sgn * (GAP / 2 + 1.5), y + WALLH / 2 - 1, z, 0));
+  corrParts.push(boxAt(GAP + 5, 1, GAP, 0, y + WALLH - 1, z, 0)); // roof slab -> covered
+}
+const entranceShell = new THREE.Mesh(mergeGeometries(corrParts), stone);
+scene.add(entranceShell);
 
-// a ring of pillars + capitals, with hanging lanterns on alternate ones
+// a colonnade ringing the hub around the emblem (kept clear of the entrance mouth)
 for (let a = 0; a < 12; a++) {
   const ang = (a / 12) * Math.PI * 2;
-  const px = Math.cos(ang) * 15.5;
-  const pz = Math.sin(ang) * 15.5;
+  if (angDiff(ang, Math.PI / 2) < 0.5) continue; // gap toward the entrance
+  const px = Math.cos(ang) * 8.5, pz = Math.sin(ang) * 8.5;
   const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-  pillar.position.set(px, 3.1, pz);
-  pillar.castShadow = true;
+  pillar.position.set(px, 5.5, pz); pillar.castShadow = true;
   scene.add(pillar);
   const cap = new THREE.Mesh(capGeo, gold);
-  cap.position.set(px, 6.4, pz);
+  cap.position.set(px, 11.1, pz);
   scene.add(cap);
-  if (a % 2 === 0) {
-    const lantern = new THREE.Mesh(lanternGeo, lanternMat.clone());
-    lantern.position.set(px * 0.92, 3.5, pz * 0.92);
-    scene.add(lantern);
-    lanterns.push({ mesh: lantern, phase: a * 0.7 });
-  }
 }
 
-// a stepped circular dais at the heart of the hall
+// a stepped circular dais at the heart of the hub
 for (let s = 0; s < 3; s++) {
   const r = 4.2 - s * 0.9;
   const tier = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.5, 0.5, 40), s % 2 ? stoneDark : stone);
@@ -292,18 +425,17 @@ emblem.add(ring);
 const emblemGlow = new THREE.Mesh(new THREE.CircleGeometry(3.2, 40), new THREE.MeshBasicMaterial({ color: 0x1f8f7c, transparent: true, opacity: 0.18 }));
 emblemGlow.position.z = -0.1;
 emblem.add(emblemGlow);
-emblem.position.set(0, 3.8, 0);
+emblem.scale.setScalar(1.25);
+emblem.position.set(0, 4.6, 0); // floats above the dais, clearing the hero's head
 scene.add(emblem);
 // a soft teal light from the emblem
-const emblemLight = new THREE.PointLight(0x3fd8bf, 2.2, 22, 2);
-emblemLight.position.set(0, 3.8, 0);
+const emblemLight = new THREE.PointLight(0x3fd8bf, 3.6, 36, 2);
+emblemLight.position.set(0, 6, 0);
 scene.add(emblemLight);
-
-// where each page waits — ringed around the shrine
-const PAGE_SPOTS = STOPS.map((_, i) => {
-  const ang = (i / STOPS.length) * Math.PI * 2 + 0.32;
-  return new THREE.Vector3(Math.cos(ang) * 11, 0, Math.sin(ang) * 11);
-});
+// a shaft of light beneath the emblem tying it to the dais
+const emblemBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 1.6, 5.5, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0x3fd8bf, transparent: true, opacity: 0.08, side: THREE.DoubleSide }));
+emblemBeam.position.set(0, 3.2, 0);
+scene.add(emblemBeam);
 
 // the treasure — the assembled artwork — waits at the far end, glowing once
 // every page has been uncovered
@@ -317,7 +449,9 @@ chest.add(chestLid);
 const chestGlow = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfcde5a, transparent: true, opacity: 0 }));
 chestGlow.position.y = 0.9;
 chest.add(chestGlow);
-chest.position.set(0, 0, -16);
+// the treasure waits in the deepest chamber (farthest from the hub)
+const deepNode = cave.nodes.reduce((best, n) => (Math.hypot(n.x, n.z) > Math.hypot(best.x, best.z) ? n : best), cave.nodes[0]);
+chest.position.set(deepNode.x, 0, deepNode.z);
 scene.add(chest);
 
 // ---- the Sutradhar (cartoon proportions: big head, expressive face,
@@ -425,10 +559,10 @@ const lamp = new THREE.PointLight(0xffce6a, 14, 55, 2);
 lamp.castShadow = true;
 lamp.shadow.mapSize.set(1024, 1024);
 diya.add(lamp);
-// a soft warm light that keeps the Sutradhar's face readable in the dark
-const faceLight = new THREE.PointLight(0xffdca6, 2.4, 8, 2);
+// a soft warm light riding on the head so the face stays readable as it turns
+const faceLight = new THREE.PointLight(0xffdca6, 1.7, 5.5, 2);
 faceLight.position.set(0, 2.7, -1.5);
-hero.add(faceLight);
+headGroup.add(faceLight);
 scene.add(hero);
 
 // hero roams the floor freely in X/Z; y follows the ground (entrance is raised)
@@ -439,61 +573,64 @@ function placeHero() {
 }
 placeHero();
 
-// ---- page tablets (one per stop) ----
-const tablets = [];
-function makeTablet(stop, i) {
-  const g = new THREE.Group();
-  const frame = new THREE.Mesh(
-    new THREE.BoxGeometry(2.0, 2.7, 0.18),
-    new THREE.MeshStandardMaterial({ color: 0xc9a24b, emissive: 0x000000, roughness: 0.4, metalness: 0.5 })
-  );
-  const panel = new THREE.Mesh(
-    new THREE.BoxGeometry(1.55, 2.2, 0.2),
-    new THREE.MeshStandardMaterial({ color: 0xf4ece0, emissive: 0x000000, roughness: 0.6 })
-  );
-  panel.position.z = 0.02;
-  const halo = new THREE.Mesh(new THREE.SphereGeometry(1.9, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfcde5a, transparent: true, opacity: 0.0 }));
-  g.add(frame, panel, halo);
-  // carved pedestal beneath the page
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.95, 1.7, 8), pillarMat);
-  ped.position.y = -2.15;
-  ped.receiveShadow = true;
-  g.add(ped);
-  const spot = PAGE_SPOTS[i];
-  g.position.set(spot.x, 2.6, spot.z);
-  g.rotation.y = Math.atan2(-spot.x, -spot.z); // face the centre of the hall
-  g.userData = { stop, i, baseY: 2.6, frame, panel, halo, spot };
-  scene.add(g);
-  return g;
+// ---- page niches (250): the first STOPS are real pages, the rest are sealed
+// folios awaiting future volumes. Rendered as instanced plaques that the torch
+// reveals from the dark as you approach. ----
+const slots = cave.niches.map((nz, i) => ({
+  x: nz.x, z: nz.z, angle: nz.angle,
+  stop: i < STOPS.length ? STOPS[i] : null,
+  sealed: i >= STOPS.length,
+  i,
+}));
+const N_SLOTS = slots.length;
+const PLAQUE_Y = 3.1;
+const frameGeo = new THREE.BoxGeometry(2.0, 2.8, 0.22);
+const panelGeo = new THREE.BoxGeometry(1.55, 2.25, 0.26).translate(0, 0, 0.06);
+const pedGeo = new THREE.CylinderGeometry(0.72, 0.98, 2.3, 8);
+const frameMesh = new THREE.InstancedMesh(frameGeo, new THREE.MeshBasicMaterial({ toneMapped: false }), N_SLOTS);
+const panelMesh = new THREE.InstancedMesh(panelGeo, new THREE.MeshBasicMaterial({ toneMapped: false }), N_SLOTS);
+const pedMesh = new THREE.InstancedMesh(pedGeo, pillarMat, N_SLOTS);
+pedMesh.receiveShadow = true;
+const dummy = new THREE.Object3D();
+for (const s of slots) {
+  dummy.position.set(s.x, PLAQUE_Y, s.z); dummy.rotation.set(0, s.angle, 0); dummy.updateMatrix();
+  frameMesh.setMatrixAt(s.i, dummy.matrix);
+  panelMesh.setMatrixAt(s.i, dummy.matrix);
+  dummy.position.set(s.x, 1.15, s.z); dummy.updateMatrix();
+  pedMesh.setMatrixAt(s.i, dummy.matrix);
 }
-STOPS.forEach((s, i) => tablets.push(makeTablet(s, i)));
+scene.add(frameMesh, panelMesh, pedMesh);
+// reveal palette
+const REVEAL = 16;
+const C_BLACK = new THREE.Color(0x040c0a);
+const C_GOLD = new THREE.Color(0xffd25e);
+const C_PARCH = new THREE.Color(0xf4ece0);
+const C_DONE = new THREE.Color(0x2f6a4a);
+const C_SEAL = new THREE.Color(0x36586a);
+const _tc = new THREE.Color();
 
-// ---- dust motes ----
-const moteCount = 140;
+// ---- dust motes drifting through the caverns ----
+const moteCount = 220;
 const mgeo = new THREE.BufferGeometry();
 const mpos = new Float32Array(moteCount * 3);
 for (let i = 0; i < moteCount; i++) {
-  mpos[i * 3] = (Math.random() - 0.5) * 26;
-  mpos[i * 3 + 1] = -Math.random() * STOPS.length * STEP_Y;
-  mpos[i * 3 + 2] = Math.random() * STOPS.length * STEP_Z;
+  mpos[i * 3] = (Math.random() - 0.5) * MAP_EXTENT * 2;
+  mpos[i * 3 + 1] = Math.random() * 6;
+  mpos[i * 3 + 2] = (Math.random() - 0.5) * MAP_EXTENT * 2;
 }
 mgeo.setAttribute("position", new THREE.BufferAttribute(mpos, 3));
-const motes = new THREE.Points(mgeo, new THREE.PointsMaterial({ color: 0xfcde5a, size: 0.1, transparent: true, opacity: 0.7, depthWrite: false }));
+const motes = new THREE.Points(mgeo, new THREE.PointsMaterial({ color: 0xfcde5a, size: 0.12, transparent: true, opacity: 0.6, depthWrite: false }));
 scene.add(motes);
 
 // ---- interaction ----
 const prompt = document.getElementById("prompt3d");
-function nearestOpenableTablet() {
-  // free exploration: whichever page you are standing closest to
-  let best = null;
-  let bestD = 999;
-  for (const t of tablets) {
-    const dx = t.userData.spot.x - heroPos.x;
-    const dz = t.userData.spot.z - heroPos.z;
-    const d = Math.hypot(dx, dz);
-    if (d < bestD) { bestD = d; best = t; }
+function nearestSlot() {
+  let best = null, bestD = 999;
+  for (const s of slots) {
+    const d = Math.hypot(s.x - heroPos.x, s.z - heroPos.z);
+    if (d < bestD) { bestD = d; best = s; }
   }
-  return bestD < 3.4 ? best : null;
+  return bestD < 3.8 ? best : null;
 }
 
 function openStop(stop) {
@@ -532,18 +669,14 @@ function flyFragmentToJournal() {
   });
 }
 
-function jumpToStop(i) {
-  const spot = PAGE_SPOTS[i];
-  // stand just inside the ring from the page, facing it
-  heroPos.set(spot.x * 0.8, 0, spot.z * 0.8);
-  placeHero();
-}
 setJumpHandler((pageId) => {
-  const idx = STOPS.findIndex((s) => s.page.id === pageId);
-  if (idx !== -1) {
-    jumpToStop(idx);
-    openStop(STOPS[idx]);
-  }
+  const slot = slots.find((s) => s.stop && s.stop.page.id === pageId);
+  if (!slot) return;
+  // stand on the floor in front of the niche, facing it
+  heroPos.set(slot.x + Math.sin(slot.angle) * 2.4, 0, slot.z + Math.cos(slot.angle) * 2.4);
+  heroFacing = slot.angle + Math.PI;
+  placeHero();
+  openStop(slot.stop);
 });
 
 // ---- opening splash gate ----
@@ -587,8 +720,8 @@ addEventListener("keydown", (e) => {
       playDescentRumble();
       return;
     }
-    const t = nearestOpenableTablet();
-    if (t) openStop(t.userData.stop);
+    const s = nearestSlot();
+    if (s && s.stop) openStop(s.stop);
   }
   // quick shortcuts: index / journal / cycle camera angle
   if (!isAnyOverlayOpen()) {
@@ -596,8 +729,8 @@ addEventListener("keydown", (e) => {
     if (k === "j") openJournal();
     if (k === "v") {
       presetIdx = (presetIdx + 1) % PRESETS.length;
-      camYaw = PRESETS[presetIdx].yaw;
       camPitch = PRESETS[presetIdx].pitch;
+      CAM_DIST = PRESETS[presetIdx].dist;
     }
   }
   if (k === "escape") {
@@ -608,17 +741,18 @@ addEventListener("keydown", (e) => {
 });
 addEventListener("keyup", (e) => (keys[e.key.toLowerCase()] = false));
 
-// ---- camera orbit (drag to rotate) + preset angles (V) ----
-let camYaw = 0;
-let camPitch = 0.72;
-const CAM_DIST = 14;
+// ---- camera: trails behind the hero down the tunnels; drag / V to override ----
+let camYaw = 0; // start behind the hero on the terrace, looking toward the gate
+let camPitch = 0.52;
+let CAM_DIST = 11;
 const PRESETS = [
-  { yaw: 0, pitch: 0.72 },      // high map view
-  { yaw: 0.7, pitch: 0.28 },    // over-shoulder
-  { yaw: 0, pitch: 0.85 },      // high looking down the well
-  { yaw: Math.PI * 0.42, pitch: 0.22 }, // side profile
+  { pitch: 0.5, dist: 12 },   // over-shoulder (default exploration)
+  { pitch: 0.32, dist: 14 },  // low, cinematic
+  { pitch: 0.8, dist: 15 },   // high map-ish look-down
+  { pitch: 0.22, dist: 10 },  // near ground
 ];
 let presetIdx = 0;
+let manualUntil = 0; // while > clock time, auto-trail is paused (user is steering)
 
 // Mouse-look steering (like a third-person action game): click to capture the
 // mouse, then moving it turns the view; WASD moves relative to where you look.
@@ -635,6 +769,7 @@ window.addEventListener("mousemove", (e) => {
   if (pointerLocked) {
     camYaw -= e.movementX * 0.0022;
     camPitch = Math.max(0.14, Math.min(1.25, camPitch + e.movementY * 0.0022));
+    manualUntil = clock.getElapsedTime() + 3.5;
     return;
   }
   if (!down) return; // fallback drag-to-look when not captured
@@ -645,6 +780,7 @@ window.addEventListener("mousemove", (e) => {
     camYaw -= dx * 0.006;
     camPitch = Math.max(0.14, Math.min(1.25, camPitch + dy * 0.004));
     down = { x: e.clientX, y: e.clientY };
+    manualUntil = clock.getElapsedTime() + 3.5;
   }
 });
 renderer.domElement.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY }; dragging = false; });
@@ -656,8 +792,8 @@ renderer.domElement.addEventListener("pointerup", () => {
   if (isAnyOverlayOpen()) return;
   if (pointerLocked) {
     // captured: a click opens the page you're standing at (crosshair)
-    const tb = nearestOpenableTablet();
-    if (tb) openStop(tb.userData.stop);
+    const s = nearestSlot();
+    if (s && s.stop) openStop(s.stop);
     return;
   }
   if (wasDrag) return;
@@ -678,25 +814,42 @@ mountHud();
 const mm = document.getElementById("minimap");
 const mmx = mm.getContext("2d");
 function drawMinimap() {
-  const W = 160, R = W / 2, scale = (R - 12) / HALL;
+  const W = mm.width, R = W / 2, scale = (R - 6) / MAP_EXTENT;
   mmx.clearRect(0, 0, W, W);
   const toXY = (x, z) => [R + x * scale, R + z * scale];
-  // central emblem
-  let [cx, cy] = toXY(0, 0);
-  mmx.fillStyle = "#3fd8bf";
-  mmx.beginPath(); mmx.arc(cx, cy, 5, 0, 7); mmx.fill();
-  // pages
-  for (const tb of tablets) {
-    const [px, py] = toXY(tb.userData.spot.x, tb.userData.spot.z);
-    mmx.fillStyle = isDone(tb.userData.stop) ? "#7fbf9f" : "#fcde5a";
-    mmx.beginPath(); mmx.arc(px, py, 4, 0, 7); mmx.fill();
+  // chambers (rooms)
+  mmx.fillStyle = "rgba(58,92,82,0.5)";
+  for (const n of cave.nodes) {
+    const [nx, ny] = toXY(n.x, n.z);
+    mmx.beginPath(); mmx.arc(nx, ny, Math.max(2, n.r * scale), 0, 7); mmx.fill();
+  }
+  // tunnels (routes + sub-routes)
+  mmx.strokeStyle = "rgba(140,170,158,0.7)"; mmx.lineWidth = 1.5;
+  for (const e of cave.edges) {
+    const a = cave.nodes[e.a], b = cave.nodes[e.b];
+    const [ax, ay] = toXY(a.x, a.z), [bx, by] = toXY(b.x, b.z);
+    mmx.beginPath(); mmx.moveTo(ax, ay); mmx.lineTo(bx, by); mmx.stroke();
+  }
+  // entrance corridor
+  const [g0x, g0y] = toXY(0, cave.gateZ), [g1x, g1y] = toXY(0, RAMP_BOT);
+  mmx.strokeStyle = "rgba(200,180,120,0.7)";
+  mmx.beginPath(); mmx.moveTo(g0x, g0y); mmx.lineTo(g1x, g1y); mmx.stroke();
+  // hub emblem
+  const [cx, cy] = toXY(0, 0);
+  mmx.fillStyle = "#3fd8bf"; mmx.beginPath(); mmx.arc(cx, cy, 4, 0, 7); mmx.fill();
+  // real pages
+  for (const s of slots) {
+    if (!s.stop) continue;
+    const [px, py] = toXY(s.x, s.z);
+    mmx.fillStyle = isDone(s.stop) ? "#7fbf9f" : "#fcde5a";
+    mmx.beginPath(); mmx.arc(px, py, 3, 0, 7); mmx.fill();
   }
   // player + facing
   const [hx, hy] = toXY(heroPos.x, heroPos.z);
-  mmx.strokeStyle = "#f4ece0"; mmx.lineWidth = 2;
-  mmx.beginPath(); mmx.moveTo(hx, hy); mmx.lineTo(hx + Math.sin(heroFacing) * 10, hy + Math.cos(heroFacing) * 10); mmx.stroke();
+  mmx.strokeStyle = "#ffffff"; mmx.lineWidth = 2;
+  mmx.beginPath(); mmx.moveTo(hx, hy); mmx.lineTo(hx + Math.sin(heroFacing) * 9, hy + Math.cos(heroFacing) * 9); mmx.stroke();
   mmx.fillStyle = "#ffffff";
-  mmx.beginPath(); mmx.arc(hx, hy, 4, 0, 7); mmx.fill();
+  mmx.beginPath(); mmx.arc(hx, hy, 3, 0, 7); mmx.fill();
 }
 
 // completion watch
@@ -727,14 +880,14 @@ function animate() {
 
   let moving = false;
 
-  // scripted stride down through the just-opened gate into the hall
+  // scripted stride down through the just-opened gate into the hub
   if (enteringHall) {
     moving = true;
     heroFacing = Math.PI;
     heroPos.x += (0 - heroPos.x) * 0.1;
-    heroPos.z -= 0.13;
+    heroPos.z -= 0.28;
     placeHero();
-    if (heroPos.z < GATE_Z - 6) enteringHall = false;
+    if (heroPos.z < 9) enteringHall = false;
   } else if (!overlay) {
     const run = keys["shift"] ? 1.8 : 1;
     let f = 0, r = 0;
@@ -752,20 +905,22 @@ function animate() {
       const mv = new THREE.Vector3().addScaledVector(camDir, f).addScaledVector(right, r);
       if (mv.lengthSq() > 0) {
         mv.normalize();
-        const spd = 0.17 * run;
-        heroPos.x += mv.x * spd;
-        heroPos.z += mv.z * spd;
-        // stay within the world (the entrance court extends past the hall)
-        heroPos.x = Math.max(-HALL + 1, Math.min(HALL - 1, heroPos.x));
-        heroPos.z = Math.max(-HALL + 1, Math.min(GATE_Z + 9, heroPos.z));
-        // the closed gate blocks the way down into the hall
-        if (!gateOpen && heroPos.z < GATE_Z + 1.2) heroPos.z = GATE_Z + 1.2;
-        // keep out of the central dais (only in the hall, past the gate)
-        if (heroPos.z < GATE_Z - 2) {
-          const cd = Math.hypot(heroPos.x, heroPos.z);
-          if (cd < 5.4) { heroPos.x = (heroPos.x / cd) * 5.4; heroPos.z = (heroPos.z / cd) * 5.4; }
-        }
+        const spd = 0.19 * run;
         heroFacing = Math.atan2(mv.x, mv.z);
+        // above ground (on the terrace / stairs) roam freely; underground, the
+        // cave walls are solid — slide along them instead of passing through
+        if (heroPos.z > GATE_Z - 2) {
+          heroPos.x = Math.max(-24, Math.min(24, heroPos.x + mv.x * spd));
+          heroPos.z = Math.max(GATE_Z - 1, Math.min(GATE_Z + 24, heroPos.z + mv.z * spd));
+          if (!gateOpen && heroPos.z < GATE_Z + 1.2) heroPos.z = GATE_Z + 1.2;
+        } else if (heroPos.z > RAMP_BOT - 1) {
+          // in the covered stair corridor
+          heroPos.x = Math.max(-GAP / 2 + 1, Math.min(GAP / 2 - 1, heroPos.x + mv.x * spd));
+          heroPos.z += mv.z * spd;
+        } else {
+          const next = slideMove(cave, heroPos.x, heroPos.z, mv.x * spd, mv.z * spd, 1.1);
+          heroPos.x = next.x; heroPos.z = next.z;
+        }
         placeHero();
       }
     }
@@ -783,6 +938,15 @@ function animate() {
   while (dyaw > Math.PI) dyaw -= Math.PI * 2;
   while (dyaw < -Math.PI) dyaw += Math.PI * 2;
   hero.rotation.y += dyaw * 0.15;
+  // turn the head so the Sutradhar's face stays toward the camera (its guide
+  // looks back at the seeker). The face is on the head's -Z side, so the head
+  // world-yaw that points the face at the camera is (angToCam - PI).
+  const angToCam = Math.atan2(camera.position.x - hero.position.x, camera.position.z - hero.position.z);
+  let hyaw = angToCam - Math.PI - hero.rotation.y;
+  while (hyaw > Math.PI) hyaw -= Math.PI * 2;
+  while (hyaw < -Math.PI) hyaw += Math.PI * 2;
+  hyaw = Math.max(-1.3, Math.min(1.3, hyaw)); // clamp so the neck doesn't over-twist
+  headGroup.rotation.y += (hyaw - headGroup.rotation.y) * 0.12;
   lamp.intensity = 14 + Math.sin(t * 12) * 1.8;
   diyaGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.18);
   // mouth moves while the Sutradhar speaks
@@ -794,8 +958,8 @@ function animate() {
     l.mesh.material.emissiveIntensity = 1.8 + Math.sin(t * 8 + l.phase) * 0.5 + Math.sin(t * 23 + l.phase) * 0.2;
   }
   // the central emblem turns slowly and breathes
-  emblem.rotation.y = t * 0.35;
-  emblem.position.y = 3.8 + Math.sin(t * 1.1) * 0.15;
+  emblem.rotation.y = Math.sin(t * 0.4) * 0.28; // sways gently, logo faces the entrance
+  emblem.position.y = 4.6 + Math.sin(t * 1.1) * 0.2;
   emblemGlow.material.opacity = 0.14 + Math.abs(Math.sin(t * 1.5)) * 0.1;
 
   // the vault brightens a little as more of it is uncovered
@@ -810,55 +974,65 @@ function animate() {
     chestLid.rotation.x = Math.max(chestLid.rotation.x - 0.02, -1.1);
   }
 
-  // every page hides in the dark and is REVEALED by the torch as you near it;
-  // read ones stay softly lit (silver-green), unread ones glow warm gold
-  const REVEAL = 13;
-  for (const tb of tablets) {
-    const done = isDone(tb.userData.stop);
-    tb.position.y = tb.userData.baseY + Math.sin(t * 1.4 + tb.userData.i) * 0.2;
-    tb.rotation.y = Math.sin(t * 0.5 + tb.userData.i) * 0.3;
-    const d = tb.position.distanceTo(hero.position);
-    const prox = Math.max(0, Math.min(1, 1 - d / REVEAL)); // 1 = right at the lamp
-    const em = tb.userData.frame.material;
-    const pem = tb.userData.panel.material;
-    em.color.setHex(0xc9a24b);
-    pem.color.setHex(0xf4ece0);
-    if (done) {
-      em.emissive.setHex(0x2a4a2f); pem.emissive.setHex(0x203a2a);
-      em.emissiveIntensity = 0.5 * prox; pem.emissiveIntensity = 0.45 * prox;
-      tb.userData.halo.material.opacity = 0.05 * prox;
-    } else {
-      const pulse = 0.55 + 0.45 * Math.sin(t * 3 + tb.userData.i);
-      em.emissive.setHex(0x8a6a1f); pem.emissive.setHex(0x6f6a2a);
-      em.emissiveIntensity = (0.35 + pulse * 0.9) * prox;
-      pem.emissiveIntensity = (0.3 + pulse * 0.8) * prox;
-      tb.userData.halo.material.opacity = (0.04 + pulse * 0.08) * prox;
-    }
+  // every niche hides in the dark and is REVEALED by the torch as you near it
+  for (const s of slots) {
+    const d = Math.hypot(s.x - heroPos.x, s.z - heroPos.z);
+    const prox = Math.max(0, Math.min(1, 1 - d / REVEAL));
+    let frameBase, panelBase, gain;
+    if (s.sealed) { frameBase = C_SEAL; panelBase = C_SEAL; gain = 0.45; }
+    else if (isDone(s.stop)) { frameBase = C_GOLD; panelBase = C_DONE; gain = 1; }
+    else { const pulse = 0.6 + 0.4 * Math.sin(t * 3 + s.i); frameBase = C_GOLD; panelBase = C_PARCH; gain = pulse; }
+    _tc.copy(C_BLACK).lerp(frameBase, prox * gain);
+    frameMesh.setColorAt(s.i, _tc);
+    _tc.copy(C_BLACK).lerp(panelBase, prox * gain);
+    panelMesh.setColorAt(s.i, _tc);
   }
+  frameMesh.instanceColor.needsUpdate = true;
+  panelMesh.instanceColor.needsUpdate = true;
 
-  // motes rise
+  // motes drift up
   const p = motes.geometry.attributes.position.array;
   for (let i = 0; i < moteCount; i++) {
-    p[i * 3 + 1] += 0.02;
-    if (p[i * 3 + 1] > 4) p[i * 3 + 1] = -STOPS.length * STEP_Y;
+    p[i * 3 + 1] += 0.015;
+    if (p[i * 3 + 1] > 8) p[i * 3 + 1] = 0;
   }
   motes.geometry.attributes.position.needsUpdate = true;
 
-  // third-person camera behind & above the hero
-  // orbit camera: spherical offset around the hero from yaw/pitch
-  const cp = Math.max(0.08, Math.min(1.15, camPitch));
-  const ox = Math.sin(camYaw) * Math.cos(cp) * CAM_DIST;
-  const oy = Math.sin(cp) * CAM_DIST + 3.4; // higher so steps don't occlude
-  const oz = Math.cos(camYaw) * Math.cos(cp) * CAM_DIST; // camera sits behind (+Z), looking into the hall
+  // third-person camera: trails behind the hero unless the player is steering
+  if (t > manualUntil && moving) {
+    let target = heroFacing + Math.PI;
+    let d = target - camYaw;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    camYaw += d * 0.05;
+  }
+  const cp = Math.max(0.12, Math.min(1.15, camPitch));
+  const dirx = Math.sin(camYaw) * Math.cos(cp);
+  const dirz = Math.cos(camYaw) * Math.cos(cp);
+  // pull the boom in so the camera never buries itself in the cave rock
+  let dist = CAM_DIST;
+  if (heroPos.z < RAMP_BOT) {
+    dist = 3;
+    for (let dd = CAM_DIST; dd >= 3; dd -= 0.5) {
+      if (isWalkable(cave, hero.position.x + dirx * dd, hero.position.z + dirz * dd, 0.2)) { dist = dd; break; }
+    }
+  }
+  const ox = dirx * dist;
+  // when the boom is short (tight spot) lift the camera so it looks down over
+  // the hero instead of into the wall in front
+  const oy = Math.sin(cp) * dist + 2.4 + (CAM_DIST - dist) * 0.5;
+  const oz = dirz * dist;
   const desired = new THREE.Vector3(hero.position.x + ox, hero.position.y + oy, hero.position.z + oz);
-  camera.position.lerp(desired, 0.1);
-  camera.lookAt(hero.position.x, hero.position.y + 1.8, hero.position.z - 4);
+  camera.position.lerp(desired, settling ? 0.02 : 0.12);
+  // look a little ahead of the hero in the direction it faces
+  camera.lookAt(hero.position.x - Math.sin(heroFacing) * 2, hero.position.y + 2, hero.position.z - Math.cos(heroFacing) * 2);
 
   // proximity prompt
   if (!overlay) {
-    const near = nearestOpenableTablet();
-    prompt.textContent = near ? "Press E to open · " + near.userData.stop.page.title : "";
-    prompt.style.opacity = near ? "1" : "0";
+    const near = nearestSlot();
+    if (near && near.stop) { prompt.textContent = "Press E to open · " + near.stop.page.title; prompt.style.opacity = "1"; }
+    else if (near) { prompt.textContent = "A sealed folio — awaiting a future volume"; prompt.style.opacity = "1"; }
+    else { prompt.style.opacity = "0"; }
   } else {
     prompt.style.opacity = "0";
   }
