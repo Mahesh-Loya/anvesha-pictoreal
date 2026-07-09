@@ -499,6 +499,19 @@
 }
 #three-root canvas { display: block; }
 
+#minimap {
+  position: fixed;
+  top: 60px;
+  right: 14px;
+  z-index: 11;
+  width: 150px;
+  height: 150px;
+  border: 2px solid var(--linework-gold);
+  border-radius: 50%;
+  background: rgba(6, 24, 20, 0.75);
+  pointer-events: none;
+}
+
 #controls-hint {
   position: fixed;
   left: 50%;

@@ -1,6 +1,21 @@
 export const magazine = {
   title: "Pictoreal · Volume 28",
 
+  // Carved into the walls of the well's gate (placeholder — edit freely).
+  club: {
+    name: "THE PICTOREAL CLUB",
+    lines: [
+      "PICT's magazine & design collective",
+      "Vol. 28 — theme: ANVESHA, the seeking",
+      "",
+      "· Cover Launch — the unveiling",
+      "· Anvesha Art Walk — folk-art exhibit",
+      "· Sutradhar Story Night — oral tales",
+      "· Design Jam — 24-hour zine sprint",
+    ],
+    gatePrompt: "Press E to open the gate",
+  },
+
   // The Sutradhar — the "holder of the thread" — narrates the journey.
   sutradhar: {
     welcome: [

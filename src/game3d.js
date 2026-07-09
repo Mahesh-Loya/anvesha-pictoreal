@@ -38,7 +38,7 @@ const currentIndex = () => {
 // ---- scene / renderer ----
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x06201b);
-scene.fog = new THREE.FogExp2(0x06201b, 0.019);
+scene.fog = new THREE.FogExp2(0x06201b, 0.014);
 
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 300);
 
@@ -59,9 +59,9 @@ composer.addPass(bloom);
 
 // Dark world: only a whisper of fill so the Sutradhar's torch is the light
 // that reveals the space and the hidden pages as you move.
-const ambient = new THREE.AmbientLight(0x24645a, 0.26);
+const ambient = new THREE.AmbientLight(0x2a6f63, 0.34);
 scene.add(ambient);
-const hemi = new THREE.HemisphereLight(0x2a6456, 0x060f0c, 0.3);
+const hemi = new THREE.HemisphereLight(0x36786a, 0x08120e, 0.4);
 scene.add(hemi);
 const rim = new THREE.DirectionalLight(0x8fd8c8, 0.1);
 rim.position.set(-10, 20, 8);
@@ -122,90 +122,104 @@ const pillarGeo = new THREE.CylinderGeometry(0.5, 0.6, STEP_Y + 3, 10);
 const capGeo = new THREE.BoxGeometry(1.4, 0.5, 1.4);
 const lanternGeo = new THREE.SphereGeometry(0.32, 12, 12);
 
-for (let i = -1; i < STOPS.length + 1; i++) {
-  const c = pathAt(i);
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(16, 1, STEP_Z + 0.2), i % 2 ? stoneDark : stone);
-  slab.position.set(0, c.y - 1.5, c.z);
-  slab.receiveShadow = true;
-  scene.add(slab);
+// ---- open explorable vault (the "map"): a dark hall you roam with your torch,
+// a sunken stepwell shrine at its heart, the pages ringed around it ----
+const HALL = 20;
 
-  for (const sx of [-8, 8]) {
-    // stepwell terraces: stacked ledges rising outward, like a baoli's steps
-    for (let s = 0; s < 4; s++) {
-      const ledge = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.55, STEP_Z + 0.2), s % 2 ? stoneDark : stone);
-      ledge.position.set(sx - Math.sign(sx) * (2.2 - s * 0.95), c.y - 1.4 + s * 0.95, c.z);
-      ledge.receiveShadow = true;
-      scene.add(ledge);
-    }
-    // side wall (behind the terraces)
-    const wall = new THREE.Mesh(new THREE.BoxGeometry(1.2, STEP_Y + 3, STEP_Z + 0.2), stone);
-    wall.position.set(sx, c.y + 0.5, c.z);
-    wall.receiveShadow = true;
-    wall.castShadow = true;
-    scene.add(wall);
-    // carved gold band on the wall
-    const band = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.25, STEP_Z), gold);
-    band.position.set(sx, c.y + 1.6, c.z);
-    scene.add(band);
-    // flanking pillar + capital
-    const pillar = new THREE.Mesh(pillarGeo, pillarMat);
-    pillar.position.set(sx - Math.sign(sx) * 1.3, c.y + 0.5, c.z - STEP_Z / 2);
-    pillar.castShadow = true;
-    scene.add(pillar);
-    const cap = new THREE.Mesh(capGeo, gold);
-    cap.position.set(pillar.position.x, c.y + 2.3, pillar.position.z);
-    scene.add(cap);
-    // hanging lantern (emissive — glows via bloom)
+const floorMat = stoneMat(105, 84, 58, 10);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(HALL * 2 + 12, HALL * 2 + 12), floorMat);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// boundary walls
+for (const [x, z, w, d] of [
+  [0, -HALL - 3, HALL * 2 + 12, 2],
+  [0, HALL + 3, HALL * 2 + 12, 2],
+  [-HALL - 3, 0, 2, HALL * 2 + 12],
+  [HALL + 3, 0, 2, HALL * 2 + 12],
+]) {
+  const wl = new THREE.Mesh(new THREE.BoxGeometry(w, 9, d), stone);
+  wl.position.set(x, 4, z);
+  wl.receiveShadow = true;
+  scene.add(wl);
+}
+
+// a ring of pillars + capitals, with hanging lanterns on alternate ones
+for (let a = 0; a < 12; a++) {
+  const ang = (a / 12) * Math.PI * 2;
+  const px = Math.cos(ang) * 15.5;
+  const pz = Math.sin(ang) * 15.5;
+  const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+  pillar.position.set(px, 3.1, pz);
+  pillar.castShadow = true;
+  scene.add(pillar);
+  const cap = new THREE.Mesh(capGeo, gold);
+  cap.position.set(px, 6.4, pz);
+  scene.add(cap);
+  if (a % 2 === 0) {
     const lantern = new THREE.Mesh(lanternGeo, lanternMat.clone());
-    lantern.position.set(sx - Math.sign(sx) * 1.9, c.y + 1.4, c.z + STEP_Z / 2 - 0.5);
+    lantern.position.set(px * 0.92, 3.5, pz * 0.92);
     scene.add(lantern);
-    lanterns.push({ mesh: lantern, phase: i * 1.3 + (sx > 0 ? 0 : 0.6) });
-    // thin chain
-    const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 6), gold);
-    chain.position.set(lantern.position.x, lantern.position.y + 0.9, lantern.position.z);
-    scene.add(chain);
-  }
-
-  // arch lintel across the top of each landing
-  const arch = new THREE.Mesh(new THREE.BoxGeometry(15, 0.7, 0.8), stone);
-  arch.position.set(0, c.y + 2.6, c.z + STEP_Z / 2 - 0.4);
-  scene.add(arch);
-
-  // a run of real steps descending from this landing to the next
-  if (i < STOPS.length) {
-    const n = pathAt(i + 1);
-    const nSteps = 5;
-    for (let s = 0; s < nSteps; s++) {
-      const f = (s + 1) / (nSteps + 1);
-      const step = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.5, STEP_Z / nSteps + 0.3), s % 2 ? stoneDark : stone);
-      step.position.set(0, c.y - 1.2 - (c.y - n.y) * f + 0.4, c.z + (n.z - c.z) * f);
-      step.receiveShadow = true;
-      scene.add(step);
-    }
-  }
-
-  // a carved pedestal under each page (skip the padding rows -1 and end)
-  if (i >= 0 && i < STOPS.length) {
-    const side = i % 2 ? 1 : -1;
-    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.1, 1.4, 8), pillarMat);
-    ped.position.set(side * SIDE, c.y - 0.6, c.z);
-    ped.receiveShadow = true;
-    ped.castShadow = true;
-    scene.add(ped);
-    const pedTop = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 0.9, 0.25, 8), gold);
-    pedTop.position.set(side * SIDE, c.y + 0.2, c.z);
-    scene.add(pedTop);
+    lanterns.push({ mesh: lantern, phase: a * 0.7 });
   }
 }
-// water at the very bottom
-const water = new THREE.Mesh(
-  new THREE.CircleGeometry(7, 40),
-  new THREE.MeshStandardMaterial({ color: 0x041a16, roughness: 0.15, metalness: 0.7 })
+
+// a stepped circular dais at the heart of the hall
+for (let s = 0; s < 3; s++) {
+  const r = 4.2 - s * 0.9;
+  const tier = new THREE.Mesh(new THREE.CylinderGeometry(r, r + 0.5, 0.5, 40), s % 2 ? stoneDark : stone);
+  tier.position.set(0, 0.25 + s * 0.5, 0);
+  tier.receiveShadow = true;
+  scene.add(tier);
+}
+// the 3D Pictoreal logo emblem, rotating and glowing above the dais
+const emblem = new THREE.Group();
+const logoTex = new THREE.TextureLoader().load("/pictoreal-logo.png");
+logoTex.colorSpace = THREE.SRGBColorSpace;
+const emblemDisc = new THREE.Mesh(
+  new THREE.CircleGeometry(2.3, 48),
+  new THREE.MeshBasicMaterial({ map: logoTex, transparent: true })
 );
-water.rotation.x = -Math.PI / 2;
-const bottom = pathAt(STOPS.length + 0.5);
-water.position.set(0, bottom.y - 2, bottom.z);
-scene.add(water);
+const emblemBack = new THREE.Mesh(
+  new THREE.CircleGeometry(2.3, 48),
+  new THREE.MeshBasicMaterial({ map: logoTex, transparent: true })
+);
+emblemBack.rotation.y = Math.PI;
+emblem.add(emblemDisc, emblemBack);
+// a gold ring frame + glow behind
+const ring = new THREE.Mesh(new THREE.TorusGeometry(2.45, 0.12, 12, 48), new THREE.MeshStandardMaterial({ color: 0xc9a24b, emissive: 0xc9a24b, emissiveIntensity: 1.2, metalness: 0.7, roughness: 0.3 }));
+emblem.add(ring);
+const emblemGlow = new THREE.Mesh(new THREE.CircleGeometry(3.2, 40), new THREE.MeshBasicMaterial({ color: 0x1f8f7c, transparent: true, opacity: 0.18 }));
+emblemGlow.position.z = -0.1;
+emblem.add(emblemGlow);
+emblem.position.set(0, 3.8, 0);
+scene.add(emblem);
+// a soft teal light from the emblem
+const emblemLight = new THREE.PointLight(0x3fd8bf, 2.2, 22, 2);
+emblemLight.position.set(0, 3.8, 0);
+scene.add(emblemLight);
+
+// where each page waits — ringed around the shrine
+const PAGE_SPOTS = STOPS.map((_, i) => {
+  const ang = (i / STOPS.length) * Math.PI * 2 + 0.32;
+  return new THREE.Vector3(Math.cos(ang) * 11, 0, Math.sin(ang) * 11);
+});
+
+// the treasure — the assembled artwork — waits at the far end, glowing once
+// every page has been uncovered
+const chest = new THREE.Group();
+chest.add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.4, 1.7), new THREE.MeshStandardMaterial({ color: 0x5f4123, roughness: 0.6 })).translateY(0.7));
+for (const bx of [-1.2, 1.2]) chest.add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.5, 1.8), gold).translateX(bx).translateY(0.75));
+const chestLid = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.6, 1.7), new THREE.MeshStandardMaterial({ color: 0x74522a, roughness: 0.55 }));
+chestLid.geometry.translate(0, 0.3, 0.85);
+chestLid.position.set(0, 1.4, -0.85);
+chest.add(chestLid);
+const chestGlow = new THREE.Mesh(new THREE.SphereGeometry(1.6, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfcde5a, transparent: true, opacity: 0 }));
+chestGlow.position.y = 0.9;
+chest.add(chestGlow);
+chest.position.set(0, 0, -16);
+scene.add(chest);
 
 // ---- the Sutradhar (cartoon proportions: big head, expressive face,
 // holding a torch that is the only real light in the dark) ----
@@ -308,7 +322,7 @@ diya.position.set(0.05, -1.5, 0.1);
 armR.add(diya);
 const diyaGlow = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.3 }));
 diya.add(diyaGlow);
-const lamp = new THREE.PointLight(0xffce6a, 13, 44, 2);
+const lamp = new THREE.PointLight(0xffce6a, 14, 55, 2);
 lamp.castShadow = true;
 lamp.shadow.mapSize.set(1024, 1024);
 diya.add(lamp);
@@ -318,12 +332,11 @@ faceLight.position.set(0, 2.7, -1.5);
 hero.add(faceLight);
 scene.add(hero);
 
-// hero moves along the path parameter `heroP` plus a sideways strafe
-let heroP = currentIndex();
-let strafe = 0;
+// hero roams the floor freely in X/Z
+const heroPos = new THREE.Vector3(7, 0, 13);
+let heroFacing = Math.atan2(-7, -13); // looking toward the centre
 function placeHero() {
-  const c = pathAt(heroP);
-  hero.position.set(strafe, c.y + 0.2, c.z);
+  hero.position.set(heroPos.x, 0.2, heroPos.z);
 }
 placeHero();
 
@@ -342,10 +355,15 @@ function makeTablet(stop, i) {
   panel.position.z = 0.02;
   const halo = new THREE.Mesh(new THREE.SphereGeometry(1.9, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfcde5a, transparent: true, opacity: 0.0 }));
   g.add(frame, panel, halo);
-  const c = pathAt(i);
-  const side = i % 2 ? 1 : -1;
-  g.position.set(side * SIDE, c.y + 2.2, c.z);
-  g.userData = { stop, i, baseY: c.y + 2.2, frame, panel, halo };
+  // carved pedestal beneath the page
+  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.95, 1.7, 8), pillarMat);
+  ped.position.y = -2.15;
+  ped.receiveShadow = true;
+  g.add(ped);
+  const spot = PAGE_SPOTS[i];
+  g.position.set(spot.x, 2.6, spot.z);
+  g.rotation.y = Math.atan2(-spot.x, -spot.z); // face the centre of the hall
+  g.userData = { stop, i, baseY: 2.6, frame, panel, halo, spot };
   scene.add(g);
   return g;
 }
@@ -367,14 +385,16 @@ scene.add(motes);
 // ---- interaction ----
 const prompt = document.getElementById("prompt3d");
 function nearestOpenableTablet() {
-  // free exploration: any page the lamp reaches can be opened
+  // free exploration: whichever page you are standing closest to
   let best = null;
   let bestD = 999;
   for (const t of tablets) {
-    const d = Math.abs(t.userData.i - heroP) + Math.abs(t.position.x - strafe) * 0.15;
+    const dx = t.userData.spot.x - heroPos.x;
+    const dz = t.userData.spot.z - heroPos.z;
+    const d = Math.hypot(dx, dz);
     if (d < bestD) { bestD = d; best = t; }
   }
-  return bestD < 0.7 ? best : null;
+  return bestD < 3.4 ? best : null;
 }
 
 function openStop(stop) {
@@ -414,13 +434,14 @@ function flyFragmentToJournal() {
 }
 
 function jumpToStop(i) {
-  heroP = i;
-  strafe = (i % 2 ? 1 : -1) * (SIDE - 1.6);
+  const spot = PAGE_SPOTS[i];
+  // stand just inside the ring from the page, facing it
+  heroPos.set(spot.x * 0.8, 0, spot.z * 0.8);
   placeHero();
 }
 setJumpHandler((pageId) => {
   const idx = STOPS.findIndex((s) => s.page.id === pageId);
-  if (idx !== -1 && idx <= currentIndex()) {
+  if (idx !== -1) {
     jumpToStop(idx);
     openStop(STOPS[idx]);
   }
@@ -473,10 +494,10 @@ addEventListener("keyup", (e) => (keys[e.key.toLowerCase()] = false));
 
 // ---- camera orbit (drag to rotate) + preset angles (V) ----
 let camYaw = 0;
-let camPitch = 0.44;
-const CAM_DIST = 11;
+let camPitch = 0.72;
+const CAM_DIST = 14;
 const PRESETS = [
-  { yaw: 0, pitch: 0.44 },      // behind
+  { yaw: 0, pitch: 0.72 },      // high map view
   { yaw: 0.7, pitch: 0.28 },    // over-shoulder
   { yaw: 0, pitch: 0.85 },      // high looking down the well
   { yaw: Math.PI * 0.42, pitch: 0.22 }, // side profile
@@ -529,6 +550,31 @@ addEventListener("resize", () => {
 // ---- HUD (welcome narration fires from begin() after the splash) ----
 mountHud();
 
+// ---- minimap ----
+const mm = document.getElementById("minimap");
+const mmx = mm.getContext("2d");
+function drawMinimap() {
+  const W = 160, R = W / 2, scale = (R - 12) / HALL;
+  mmx.clearRect(0, 0, W, W);
+  const toXY = (x, z) => [R + x * scale, R + z * scale];
+  // central emblem
+  let [cx, cy] = toXY(0, 0);
+  mmx.fillStyle = "#3fd8bf";
+  mmx.beginPath(); mmx.arc(cx, cy, 5, 0, 7); mmx.fill();
+  // pages
+  for (const tb of tablets) {
+    const [px, py] = toXY(tb.userData.spot.x, tb.userData.spot.z);
+    mmx.fillStyle = isDone(tb.userData.stop) ? "#7fbf9f" : "#fcde5a";
+    mmx.beginPath(); mmx.arc(px, py, 4, 0, 7); mmx.fill();
+  }
+  // player + facing
+  const [hx, hy] = toXY(heroPos.x, heroPos.z);
+  mmx.strokeStyle = "#f4ece0"; mmx.lineWidth = 2;
+  mmx.beginPath(); mmx.moveTo(hx, hy); mmx.lineTo(hx + Math.sin(heroFacing) * 10, hy + Math.cos(heroFacing) * 10); mmx.stroke();
+  mmx.fillStyle = "#ffffff";
+  mmx.beginPath(); mmx.arc(hx, hy, 4, 0, 7); mmx.fill();
+}
+
 // completion watch
 let wasReaderOpen = false;
 let finished = false;
@@ -547,24 +593,38 @@ function animate() {
   const t = clock.getElapsedTime();
   const overlay = isAnyOverlayOpen() || !started;
 
+  let moving = false;
   if (!overlay) {
-    const run = keys["shift"] ? 1.9 : 1;
-    let dp = 0;
-    // W / Up = go DEEPER (down the well, away from camera); S / Down = back up
-    if (keys["arrowup"] || keys["w"]) dp += 1;
-    if (keys["arrowdown"] || keys["s"]) dp -= 1;
-    let ds = 0;
-    // A / Left = step left on screen; D / Right = step right (camera looks
-    // down +Z, so screen-left is +X and screen-right is -X)
-    if (keys["arrowleft"] || keys["a"]) ds += 1;
-    if (keys["arrowright"] || keys["d"]) ds -= 1;
-    heroP = Math.max(0, Math.min(STOPS.length - 1, heroP + dp * 0.045 * run));
-    strafe = Math.max(-(SIDE - 1.0), Math.min(SIDE - 1.0, strafe + ds * 0.16 * run));
-    placeHero();
+    const run = keys["shift"] ? 1.8 : 1;
+    let f = 0, r = 0;
+    if (keys["arrowup"] || keys["w"]) f += 1;
+    if (keys["arrowdown"] || keys["s"]) f -= 1;
+    if (keys["arrowright"] || keys["d"]) r += 1;
+    if (keys["arrowleft"] || keys["a"]) r -= 1;
+    if (f || r) {
+      moving = true;
+      // move relative to where the camera is looking (feels natural with orbit)
+      const camDir = new THREE.Vector3(hero.position.x - camera.position.x, 0, hero.position.z - camera.position.z);
+      if (camDir.lengthSq() < 0.001) camDir.set(0, 0, 1);
+      camDir.normalize();
+      const right = new THREE.Vector3(-camDir.z, 0, camDir.x);
+      const mv = new THREE.Vector3().addScaledVector(camDir, f).addScaledVector(right, r);
+      if (mv.lengthSq() > 0) {
+        mv.normalize();
+        const spd = 0.17 * run;
+        heroPos.x += mv.x * spd;
+        heroPos.z += mv.z * spd;
+        // stay inside the hall and out of the central shrine pit
+        heroPos.x = Math.max(-HALL + 1, Math.min(HALL - 1, heroPos.x));
+        heroPos.z = Math.max(-HALL + 1, Math.min(HALL - 1, heroPos.z));
+        const cd = Math.hypot(heroPos.x, heroPos.z);
+        if (cd < 6.2) { heroPos.x = (heroPos.x / cd) * 6.2; heroPos.z = (heroPos.z / cd) * 6.2; }
+        heroFacing = Math.atan2(mv.x, mv.z);
+        placeHero();
+      }
+    }
   }
 
-  // gentle float bob + subtle gesture; the Sutradhar keeps facing the seeker
-  const moving = !overlay && (keys["arrowdown"] || keys["s"] || keys["arrowup"] || keys["w"] || keys["arrowleft"] || keys["a"] || keys["arrowright"] || keys["d"]);
   if (moving && t > nextStep) { playFootstep(); nextStep = t + 0.34; }
   const rate = moving ? 6 : 2;
   const bob = Math.abs(Math.sin(t * rate)) * (moving ? 0.12 : 0.05);
@@ -572,8 +632,12 @@ function animate() {
   headGroup.position.y = bob;
   armL.rotation.x = Math.sin(t * rate) * (moving ? 0.4 : 0.12);
   armR.rotation.x = -0.5 + Math.sin(t * rate) * 0.1; // right arm holds the torch out
-  hero.rotation.y += ((strafe > 0.3 ? -0.18 : strafe < -0.3 ? 0.18 : 0) - hero.rotation.y) * 0.1;
-  lamp.intensity = 13 + Math.sin(t * 12) * 1.8;
+  // turn to face the direction of travel
+  let dyaw = heroFacing - hero.rotation.y;
+  while (dyaw > Math.PI) dyaw -= Math.PI * 2;
+  while (dyaw < -Math.PI) dyaw += Math.PI * 2;
+  hero.rotation.y += dyaw * 0.15;
+  lamp.intensity = 14 + Math.sin(t * 12) * 1.8;
   diyaGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.18);
   // mouth moves while the Sutradhar speaks
   const talk = isSpeaking();
@@ -583,12 +647,22 @@ function animate() {
   for (const l of lanterns) {
     l.mesh.material.emissiveIntensity = 1.8 + Math.sin(t * 8 + l.phase) * 0.5 + Math.sin(t * 23 + l.phase) * 0.2;
   }
+  // the central emblem turns slowly and breathes
+  emblem.rotation.y = t * 0.35;
+  emblem.position.y = 3.8 + Math.sin(t * 1.1) * 0.15;
+  emblemGlow.material.opacity = 0.14 + Math.abs(Math.sin(t * 1.5)) * 0.1;
 
-  // per-section mood: fog deepens as you descend (kept dark for the reveal)
-  const depth = heroP / Math.max(1, STOPS.length - 1);
-  const fogC = new THREE.Color(0x081f1b).lerp(new THREE.Color(0x040f0c), depth);
+  // the vault brightens a little as more of it is uncovered
+  const depth = 1 - getSurfacedCount() / Math.max(1, STOPS.length);
+  const fogC = new THREE.Color(0x0a2620).lerp(new THREE.Color(0x05120f), depth);
   scene.fog.color.copy(fogC);
   scene.background.copy(fogC);
+
+  // treasure chest wakes up once every page is uncovered
+  if (isJourneyComplete()) {
+    chestGlow.material.opacity = 0.25 + Math.abs(Math.sin(t * 2)) * 0.25;
+    chestLid.rotation.x = Math.max(chestLid.rotation.x - 0.02, -1.1);
+  }
 
   // every page hides in the dark and is REVEALED by the torch as you near it;
   // read ones stay softly lit (silver-green), unread ones glow warm gold
@@ -644,6 +718,7 @@ function animate() {
   }
 
   checkComplete();
+  drawMinimap();
   composer.render();
   requestAnimationFrame(animate);
 }
