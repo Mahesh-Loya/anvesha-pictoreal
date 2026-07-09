@@ -743,6 +743,7 @@ const primitiveBody = [...hero.children].filter((c) => c !== lampRig);
 let heroMixer = null;
 let heroModel = null; // the loaded GLB body (bobbed procedurally while walking)
 let heroModelBaseY = 0;
+let heroModelScl = 1; // the loader's fit-to-height scale (squash pulses around it)
 new GLTFLoader().load(
   "models/sutradhar.glb",
   (gltf) => {
@@ -768,7 +769,14 @@ new GLTFLoader().load(
     hero.add(model);
     heroModel = model;
     heroModelBaseY = model.position.y;
+    heroModelScl = s;
     primitiveBody.forEach((m) => (m.visible = false)); // hide the placeholder body
+    // the face light lives on the (now hidden) primitive head — re-hang it on
+    // the hero so the model's face and chest stay warmly readable
+    hero.add(faceLight);
+    faceLight.position.set(0, 3.0, -1.5);
+    faceLight.intensity = 2.4;
+    faceLight.distance = 7;
     if (gltf.animations?.length) {
       heroMixer = new THREE.AnimationMixer(model);
       heroMixer.clipAction(gltf.animations[0]).play();
@@ -1199,9 +1207,23 @@ function animate() {
   const rate = moving ? 6 : 2;
   const bob = Math.abs(Math.sin(t * rate)) * (moving ? 0.12 : 0.05);
   if (heroModel) {
-    // static GLB body: give it the same stride bob + a faint idle sway
-    heroModel.position.y = heroModelBaseY + bob * 0.6;
-    heroModel.rotation.z = Math.sin(t * (moving ? rate : 1.2)) * (moving ? 0.03 : 0.012);
+    // Static GLB body (no skeleton), so sell the walk the stylized-game way:
+    // a springy step-hop, a forward lean into travel, a step-synced roll that
+    // reads as weight shifting between feet, and a faint breathing sway at rest.
+    const stride = Math.sin(t * rate);
+    if (moving) {
+      heroModel.position.y = heroModelBaseY + Math.abs(stride) * 0.22; // step hop
+      heroModel.rotation.x = 0.1 + Math.abs(stride) * 0.05;            // lean in
+      heroModel.rotation.z = stride * 0.085;                            // foot-to-foot roll
+      const squash = 1 - Math.abs(Math.cos(t * rate)) * 0.035;          // landing squash
+      heroModel.scale.y = heroModelScl * squash;
+      heroModel.scale.x = heroModel.scale.z = heroModelScl * (2 - squash);
+    } else {
+      heroModel.position.y = heroModelBaseY + bob * 0.5;
+      heroModel.rotation.x += (0 - heroModel.rotation.x) * 0.1;         // settle upright
+      heroModel.rotation.z = Math.sin(t * 1.2) * 0.014;                 // breathing sway
+      heroModel.scale.setScalar(heroModelScl);
+    }
   }
   robe.position.y = 1.0 + bob;
   headGroup.position.y = bob;
