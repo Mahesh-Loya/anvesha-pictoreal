@@ -30,16 +30,35 @@ if (typeof fetch !== "undefined") {
 let voices = [];
 function refreshVoices() { voices = synth ? synth.getVoices() : []; }
 if (synth) { refreshVoices(); synth.addEventListener?.("voiceschanged", refreshVoices); }
-const INDIAN_NAME = /(ravi|heera|rishi|veena|aditi|kajal|priya|neerja|prabhat|lekha|india|hindi)/i;
-function pickVoice() {
+const INDIAN_NAME = /(ravi|heera|rishi|veena|aditi|kajal|priya|neerja|prabhat|lekha|india|hindi|marathi)/i;
+const LANG_TAG = { en: "en-IN", hi: "hi-IN", mr: "mr-IN" };
+
+// guess the language of a line when the caller doesn't say (Devanagari -> Hindi)
+function detectLang(text) {
+  return /[ऀ-ॿ]/.test(text) ? "hi" : "en";
+}
+
+// pick the best available browser voice for a target language. Hindi & Marathi
+// share the Devanagari script, so each falls back to the other before English.
+function pickVoice(lang = "en") {
   if (!voices.length) refreshVoices();
+  const byLang = (re) => voices.find((v) => re.test(v.lang));
+  const byName = (re) => voices.find((v) => re.test(v.name));
+  if (lang === "mr") {
+    return byLang(/mr[-_]IN/i) || byLang(/hi[-_]IN/i) || byName(/(marathi|hindi)/i) ||
+      byLang(/^en/i) || voices[0] || null;
+  }
+  if (lang === "hi") {
+    return byLang(/hi[-_]IN/i) || byLang(/mr[-_]IN/i) || byName(/(hindi|india)/i) ||
+      byLang(/^en/i) || voices[0] || null;
+  }
+  // English (default): prefer an Indian-accented English voice
   return (
     voices.find((v) => INDIAN_NAME.test(v.name) && /^en/i.test(v.lang)) ||
-    voices.find((v) => /en[-_]IN/i.test(v.lang)) ||
-    voices.find((v) => INDIAN_NAME.test(v.name)) ||
-    voices.find((v) => /hi[-_]IN/i.test(v.lang)) ||
-    voices.find((v) => /en[-_]GB/i.test(v.lang)) ||
-    voices.find((v) => /^en/i.test(v.lang)) ||
+    byLang(/en[-_]IN/i) ||
+    byName(INDIAN_NAME) ||
+    byLang(/en[-_]GB/i) ||
+    byLang(/^en/i) ||
     voices[0] || null
   );
 }
@@ -47,28 +66,31 @@ function pickVoice() {
 // ---- playback state (covers both a clip and the synth) ----
 let audio = null; // current HTMLAudioElement
 
-export function speak(text, { rate = 0.9, pitch = 0.92 } = {}) {
+export function speak(text, { rate = 0.9, pitch = 0.92, lang } = {}) {
   if (!state.voiceEnabled || !text) return;
   stopSpeaking();
+
+  const effLang = lang || detectLang(text);
 
   // 1. a pre-generated ElevenLabs clip, if we have one for this exact line
   const file = manifest && manifest[voiceKey(text)];
   if (file) {
-    audio = new Audio(`/voice/${file}`);
-    audio.play().catch(() => { audio = null; speakSynth(text, rate, pitch); });
+    audio = new Audio(`voice/${file}`);
+    audio.play().catch(() => { audio = null; speakSynth(text, rate, pitch, effLang); });
     audio.addEventListener("ended", () => { audio = null; });
     return;
   }
   // 2. browser TTS fallback
-  speakSynth(text, rate, pitch);
+  speakSynth(text, rate, pitch, effLang);
 }
 
-function speakSynth(text, rate, pitch) {
+function speakSynth(text, rate, pitch, lang) {
   if (!synth) return;
   synth.cancel();
   const u = new SpeechSynthesisUtterance(String(text).replace(/\s+/g, " ").trim());
-  const v = pickVoice();
+  const v = pickVoice(lang);
   if (v) u.voice = v;
+  u.lang = LANG_TAG[lang] || "en-IN"; // helps the engine even when no named voice matches
   u.rate = rate;
   u.pitch = pitch;
   synth.speak(u);

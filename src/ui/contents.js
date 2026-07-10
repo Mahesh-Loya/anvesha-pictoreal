@@ -31,7 +31,10 @@ export function openContents() {
         .map((page) => {
           const done = state.fragmentsSurfaced.has(page.fragmentId);
           const idxInAll = all.findIndex((p) => p.id === page.id);
-          const locked = idxInAll > cur;
+          // PROTOTYPE: every page is jumpable from the index so we can hop to
+          // any language and test the read-aloud voice. Restore `idxInAll > cur`
+          // to re-enable sequential unlocking.
+          const locked = false;
           const cls = done ? "done" : locked ? "locked" : "current";
           const mark = done ? "✓" : locked ? "✦" : "▸";
           gi++;

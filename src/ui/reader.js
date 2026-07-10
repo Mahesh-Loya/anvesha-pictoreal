@@ -22,6 +22,7 @@ export function openReader(pageData, onFirstRead) {
   const hasHidden = Boolean(pageData.hiddenImage);
 
   const readText = `${pageData.title}. ${pageData.caption}. ${pageData.blurb || ""}`;
+  const readLang = pageData.lang; // "en" | "hi" | "mr" (voice auto-detects if absent)
   root.innerHTML = `
     <div class="reader-card folk-border">
       <button class="reader-close" aria-label="Close">×</button>
@@ -44,10 +45,10 @@ export function openReader(pageData, onFirstRead) {
   const listenBtn = root.querySelector(".reader-listen");
   listenBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    speak(readText, { rate: 0.92 });
+    speak(readText, { rate: 0.92, lang: readLang });
   });
   // auto-read the page on open if voice is on
-  if (isVoiceEnabled()) setTimeout(() => speak(readText, { rate: 0.92 }), 350);
+  if (isVoiceEnabled()) setTimeout(() => speak(readText, { rate: 0.92, lang: readLang }), 350);
 
   const wrap = root.querySelector(".reader-image-wrap");
   wrap.addEventListener("wheel", (e) => {
