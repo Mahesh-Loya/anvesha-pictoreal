@@ -44,21 +44,25 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x241a12); // warm sandstone dark, not cold green
 scene.fog = new THREE.FogExp2(0x241a12, 0.011);
 
-const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 300);
+// Phones: portrait screens need a wider FOV or the corridor view is a slit,
+// and mobile GPUs can't afford full pixel ratio + point-light shadows.
+const IS_TOUCH = isTouchDevice();
+const fovFor = () => (innerWidth < innerHeight ? 74 : 58);
+const camera = new THREE.PerspectiveCamera(fovFor(), innerWidth / innerHeight, 0.1, 300);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.5 : 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.15;
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = !IS_TOUCH; // cube shadows from the lamp are a phone-killer
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.getElementById("three-root").appendChild(renderer.domElement);
 
 // cinematic bloom so every glow (diya, tablets, lanterns) reads as light
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.85, 0.7, 0.8);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), IS_TOUCH ? 0.55 : 0.85, 0.7, 0.8);
 composer.addPass(bloom);
 
 // Warm, torch-lit ancient temple (not a cold horror crypt): a soft amber fill
@@ -995,26 +999,34 @@ let dragging = false;
 document.addEventListener("pointerlockchange", () => {
   pointerLocked = document.pointerLockElement === renderer.domElement;
 });
-window.addEventListener("mousemove", (e) => {
+// Pointer events (NOT mousemove) so drag-to-look works with a finger too —
+// touch drags never emit mousemove, which left the camera dead on phones.
+window.addEventListener("pointermove", (e) => {
   if (pointerLocked) {
     camYaw -= e.movementX * 0.0022;
     camPitch = Math.max(0.14, Math.min(1.25, camPitch + e.movementY * 0.0022));
     manualUntil = clock.getElapsedTime() + 3.5;
     return;
   }
-  if (!down) return; // fallback drag-to-look when not captured
+  if (!down || e.pointerId !== down.id) return; // drag-to-look with the first finger only
   const dx = e.clientX - down.x;
   const dy = e.clientY - down.y;
   if (!dragging && Math.hypot(dx, dy) > 6) dragging = true;
   if (dragging) {
     camYaw -= dx * 0.006;
     camPitch = Math.max(0.14, Math.min(1.25, camPitch + dy * 0.004));
-    down = { x: e.clientX, y: e.clientY };
+    down = { id: down.id, x: e.clientX, y: e.clientY };
     manualUntil = clock.getElapsedTime() + 3.5;
   }
 });
-renderer.domElement.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY }; dragging = false; });
-renderer.domElement.addEventListener("pointerup", () => {
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  if (down) return; // a second finger doesn't steal the look-drag
+  down = { id: e.pointerId, x: e.clientX, y: e.clientY };
+  dragging = false;
+});
+window.addEventListener("pointercancel", () => { down = null; dragging = false; });
+renderer.domElement.addEventListener("pointerup", (e) => {
+  if (down && e.pointerId !== down.id) return;
   const wasDrag = dragging;
   down = null;
   dragging = false;
@@ -1043,6 +1055,7 @@ initTouchControls({ onInteract: interact, onCamera: cycleCamera });
 
 addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight;
+  camera.fov = fovFor(); // rotate phone -> keep the view comfortable
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
   composer.setSize(innerWidth, innerHeight);

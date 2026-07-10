@@ -5,6 +5,7 @@ import { speak, stopSpeaking, isVoiceEnabled } from "../systems/voice.js";
 const readPageIds = new Set();
 let currentPageData = null;
 let zoom = 1;
+let autoReadTimer = null; // pending auto-read; must die with the reader
 
 export function isReaderOpen() {
   return document.getElementById("reader-root").classList.contains("visible");
@@ -47,8 +48,15 @@ export function openReader(pageData, onFirstRead) {
     e.stopPropagation();
     speak(readText, { rate: 0.92, lang: readLang });
   });
-  // auto-read the page on open if voice is on
-  if (isVoiceEnabled()) setTimeout(() => speak(readText, { rate: 0.92, lang: readLang }), 350);
+  // auto-read the page on open if voice is on. Keep the timer handle: if the
+  // reader closes within these 350ms the speech would start AFTER close and
+  // keep talking over the game — closeReader() cancels it.
+  if (isVoiceEnabled()) {
+    autoReadTimer = setTimeout(() => {
+      autoReadTimer = null;
+      if (isReaderOpen()) speak(readText, { rate: 0.92, lang: readLang });
+    }, 350);
+  }
 
   const wrap = root.querySelector(".reader-image-wrap");
   wrap.addEventListener("wheel", (e) => {
@@ -81,6 +89,7 @@ export function closeReader() {
   root.classList.remove("visible");
   root.innerHTML = "";
   currentPageData = null;
+  if (autoReadTimer) { clearTimeout(autoReadTimer); autoReadTimer = null; }
   stopSpeaking();
   // Clicking the close button moved DOM focus off the Kaplay canvas, which
   // would leave keyboard input (movement, E) dead until the player clicks
