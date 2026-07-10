@@ -168,9 +168,13 @@ const GAP = 14; // width of the entrance ramp opening
 const ENTRY_Y = 11; // surface height; the ramp descends to the cave floor (y=0)
 const RAMP_BOT = HUBR; // the ramp meets the hall floor exactly at the hall edge
 const GY = ENTRY_Y;
-function groundHeightAt(z) {
+function groundHeightAt(z, x = 0) {
   if (z >= GATE_Z) return ENTRY_Y;
   if (z <= RAMP_BOT) return 0;
+  // the raised ramp exists ONLY inside the entrance corridor; chambers that
+  // happen to share these z values (south almond/outer ring) are cave floor —
+  // without the x check the hero "flew" on an invisible ramp out there
+  if (Math.abs(x) > GAP / 2 + 1) return 0;
   return ENTRY_Y * (z - RAMP_BOT) / (GATE_Z - RAMP_BOT);
 }
 // how deep is the map — used for fog, minimap scale, dust
@@ -797,7 +801,7 @@ new GLTFLoader().load(
 const heroPos = new THREE.Vector3(0, 0, GATE_Z + 8);
 let heroFacing = Math.PI; // facing the gate / into the hall
 function placeHero() {
-  hero.position.set(heroPos.x, groundHeightAt(heroPos.z) + 0.2, heroPos.z);
+  hero.position.set(heroPos.x, groundHeightAt(heroPos.z, heroPos.x) + 0.2, heroPos.z);
 }
 placeHero();
 
@@ -1220,8 +1224,8 @@ function animate() {
   if (enteringHall) {
     moving = true;
     heroFacing = Math.PI;
-    heroPos.x += (0 - heroPos.x) * 0.1;
-    heroPos.z -= 0.28;
+    heroPos.x += (0 - heroPos.x) * (1 - Math.pow(0.9, dt * 60));
+    heroPos.z -= 16.8 * dt; // world-units per second, not per frame
     placeHero();
     if (heroPos.z < 14) { enteringHall = false; if (!arrived) { arrived = true; setTimeout(() => narrate(magazine.sutradhar.arrive), 500); } }
   } else if (!overlay) {
@@ -1240,11 +1244,14 @@ function animate() {
       camDir.normalize();
       const right = new THREE.Vector3(-camDir.z, 0, camDir.x);
       const mv = new THREE.Vector3().addScaledVector(camDir, f).addScaledVector(right, r);
-      if (mv.lengthSq() > 0) { mv.normalize(); const spd = 0.2 * run; dvx = mv.x * spd; dvz = mv.z * spd; }
+      // world-units per SECOND scaled by dt — a 120Hz phone must not run 2x
+      // faster than a 60Hz desktop (12/s == the old 0.2/frame at 60fps)
+      if (mv.lengthSq() > 0) { mv.normalize(); const spd = 12 * run * dt; dvx = mv.x * spd; dvz = mv.z * spd; }
     }
-    // ease velocity toward the target for smooth starts, stops and turns
-    heroVel.x += (dvx - heroVel.x) * 0.22;
-    heroVel.z += (dvz - heroVel.z) * 0.22;
+    // ease velocity toward the target (frame-rate-normalized smoothing)
+    const ease = 1 - Math.pow(0.78, dt * 60);
+    heroVel.x += (dvx - heroVel.x) * ease;
+    heroVel.z += (dvz - heroVel.z) * ease;
     const sp = Math.hypot(heroVel.x, heroVel.z);
     if (sp > 0.004) {
       moving = sp > 0.03;
@@ -1253,7 +1260,11 @@ function animate() {
       // the entrance corridor) use analytic collision so nothing yanks you around
       if (heroPos.z > GATE_Z - 2) {
         heroPos.x = Math.max(-24, Math.min(24, heroPos.x + heroVel.x));
-        heroPos.z = Math.max(GATE_Z - 1, Math.min(GATE_Z + 24, heroPos.z + heroVel.z));
+        // through the open gate the corridor continues down — don't wall it
+        // off (this used to clamp at GATE_Z-1 forever, so after climbing back
+        // to the terrace you could never descend the stairs again)
+        const inMouth = gateOpen && Math.abs(heroPos.x) < GAP / 2 - 1;
+        heroPos.z = Math.max(inMouth ? GATE_Z - 3 : GATE_Z - 1, Math.min(GATE_Z + 24, heroPos.z + heroVel.z));
         if (!gateOpen && heroPos.z < GATE_Z + 1.2) heroPos.z = GATE_Z + 1.2;
       } else {
         const next = slideMove(cave, heroPos.x, heroPos.z, heroVel.x, heroVel.z, 0.9);
