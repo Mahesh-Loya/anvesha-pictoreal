@@ -852,30 +852,24 @@ scene.add(motes);
 
 // ---- glowworm ceiling: a slow-breathing star-field above the walls, so
 // tilting the camera up reveals a cavern sky instead of empty void ----
-const wormCount = 1600;
+const wormCount = 500; // sparse — a quiet night sky, not confetti
 const wgeo = new THREE.BufferGeometry();
 const wpos = new Float32Array(wormCount * 3);
 for (let i = 0; i < wormCount; i++) {
   wpos[i * 3] = (Math.random() - 0.5) * MAP_EXTENT * 2.4;
-  wpos[i * 3 + 1] = WALLH + 2 + Math.random() * 16; // from just above the walls upward
+  wpos[i * 3 + 1] = WALLH + 10 + Math.random() * 12; // high above the walls only
   wpos[i * 3 + 2] = (Math.random() - 0.5) * MAP_EXTENT * 2.4;
 }
 wgeo.setAttribute("position", new THREE.BufferAttribute(wpos, 3));
 const wormMat = new THREE.PointsMaterial({
-  color: 0x9fe8d8, // pale glowworm teal, with a few catching the lamp's gold
-  size: 0.7,
+  color: 0x9fe8d8, // pale glowworm teal
+  size: 0.5,
   transparent: true,
-  opacity: 0.75,
+  opacity: 0.7,
   depthWrite: false,
   blending: THREE.AdditiveBlending,
 });
 scene.add(new THREE.Points(wgeo, wormMat));
-const wormMat2 = new THREE.PointsMaterial({
-  color: 0xffd98a, size: 0.4, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending,
-});
-const wgeo2 = wgeo.clone();
-wgeo2.setAttribute("position", new THREE.BufferAttribute(wpos.slice(0, Math.floor(wormCount / 3) * 3).map((v, i) => (i % 3 === 0 ? v + 6 : v)), 3));
-scene.add(new THREE.Points(wgeo2, wormMat2));
 
 // The crown piece overhead: the Pictoreal mandala-eye drawn as a golden
 // constellation in the cavern sky above the central hall — look up from the
@@ -1325,8 +1319,7 @@ function animate() {
   headGroup.rotation.y += (hyaw - headGroup.rotation.y) * 0.12;
   lamp.intensity = 14 + Math.sin(t * 12) * 1.8;
   diyaGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.18);
-  wormMat.opacity = 0.6 + Math.sin(t * 0.7) * 0.2; // glowworms breathe slowly
-  wormMat2.opacity = 0.42 + Math.sin(t * 0.5 + 2) * 0.18;
+  wormMat.opacity = 0.55 + Math.sin(t * 0.7) * 0.18; // glowworms breathe slowly
   eyeMat.opacity = 0.75 + Math.sin(t * 0.9) * 0.2; // the sky-eye shimmers
   // mouth moves while the Sutradhar speaks
   const talk = isSpeaking();
