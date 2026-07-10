@@ -850,6 +850,57 @@ mgeo.setAttribute("position", new THREE.BufferAttribute(mpos, 3));
 const motes = new THREE.Points(mgeo, new THREE.PointsMaterial({ color: 0xfcde5a, size: 0.12, transparent: true, opacity: 0.6, depthWrite: false }));
 scene.add(motes);
 
+// ---- glowworm ceiling: a slow-breathing star-field above the walls, so
+// tilting the camera up reveals a cavern sky instead of empty void ----
+const wormCount = 1600;
+const wgeo = new THREE.BufferGeometry();
+const wpos = new Float32Array(wormCount * 3);
+for (let i = 0; i < wormCount; i++) {
+  wpos[i * 3] = (Math.random() - 0.5) * MAP_EXTENT * 2.4;
+  wpos[i * 3 + 1] = WALLH + 2 + Math.random() * 16; // from just above the walls upward
+  wpos[i * 3 + 2] = (Math.random() - 0.5) * MAP_EXTENT * 2.4;
+}
+wgeo.setAttribute("position", new THREE.BufferAttribute(wpos, 3));
+const wormMat = new THREE.PointsMaterial({
+  color: 0x9fe8d8, // pale glowworm teal, with a few catching the lamp's gold
+  size: 0.7,
+  transparent: true,
+  opacity: 0.75,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+});
+scene.add(new THREE.Points(wgeo, wormMat));
+const wormMat2 = new THREE.PointsMaterial({
+  color: 0xffd98a, size: 0.4, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending,
+});
+const wgeo2 = wgeo.clone();
+wgeo2.setAttribute("position", new THREE.BufferAttribute(wpos.slice(0, Math.floor(wormCount / 3) * 3).map((v, i) => (i % 3 === 0 ? v + 6 : v)), 3));
+scene.add(new THREE.Points(wgeo2, wormMat2));
+
+// The crown piece overhead: the Pictoreal mandala-eye drawn as a golden
+// constellation in the cavern sky above the central hall — look up from the
+// emblem and the seal looks back.
+const eyePts = [];
+const EYE_Y = 26, EYE_RX = 24, EYE_RZ = 12;
+for (let i = 0; i < 44; i++) { // almond outline
+  const a = (i / 44) * Math.PI * 2;
+  eyePts.push(Math.cos(a) * EYE_RX, EYE_Y + Math.sin(a * 2) * 0.8, Math.sin(a) * EYE_RZ);
+}
+for (let i = 0; i < 20; i++) { // iris ring
+  const a = (i / 20) * Math.PI * 2;
+  eyePts.push(Math.cos(a) * 7.5, EYE_Y + 0.5, Math.sin(a) * 7.5);
+}
+for (const [lx, lz] of [[10, -14], [15, -12], [19, -9], [22, -5]]) { // eyelashes
+  for (let k = 0; k < 4; k++) eyePts.push(lx * (0.72 + k * 0.11), EYE_Y + k * 0.4, lz * (0.72 + k * 0.11));
+}
+eyePts.push(0, EYE_Y + 0.5, 0); // the pupil star
+const egeo = new THREE.BufferGeometry();
+egeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(eyePts), 3));
+const eyeMat = new THREE.PointsMaterial({
+  color: 0xffe08a, size: 1.05, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending,
+});
+scene.add(new THREE.Points(egeo, eyeMat));
+
 // ---- interaction ----
 const prompt = document.getElementById("prompt3d");
 function nearestSlot() {
@@ -1004,7 +1055,7 @@ document.addEventListener("pointerlockchange", () => {
 window.addEventListener("pointermove", (e) => {
   if (pointerLocked) {
     camYaw -= e.movementX * 0.0022;
-    camPitch = Math.max(0.14, Math.min(1.25, camPitch + e.movementY * 0.0022));
+    camPitch = Math.max(0.03, Math.min(1.25, camPitch + e.movementY * 0.0022));
     manualUntil = clock.getElapsedTime() + 3.5;
     return;
   }
@@ -1014,7 +1065,7 @@ window.addEventListener("pointermove", (e) => {
   if (!dragging && Math.hypot(dx, dy) > 6) dragging = true;
   if (dragging) {
     camYaw -= dx * 0.006;
-    camPitch = Math.max(0.14, Math.min(1.25, camPitch + dy * 0.004));
+    camPitch = Math.max(0.03, Math.min(1.25, camPitch + dy * 0.004));
     down = { id: down.id, x: e.clientX, y: e.clientY };
     manualUntil = clock.getElapsedTime() + 3.5;
   }
@@ -1111,19 +1162,32 @@ function drawMinimap() {
   // hub emblem
   const [cx, cy] = toXY(0, 0);
   mmx.fillStyle = "#3fd8bf"; mmx.beginPath(); mmx.arc(cx, cy, 4, 0, 7); mmx.fill();
-  // real pages
+  // Pages: with 200 niches, drawing them all is unreadable noise. Show only
+  // the trail of pages already uncovered (small, dim) and a local "radar" of
+  // unread pages near the Sutradhar (gold), so the map stays a map.
+  const NEAR = 34; // world units of the page radar
   for (const s of slots) {
     if (!s.stop) continue;
+    const done = isDone(s.stop);
+    const d = Math.hypot(s.x - heroPos.x, s.z - heroPos.z);
+    if (!done && d > NEAR) continue;
     const [px, py] = toXY(s.x, s.z);
-    mmx.fillStyle = isDone(s.stop) ? "#7fbf9f" : "#fcde5a";
-    mmx.beginPath(); mmx.arc(px, py, 3, 0, 7); mmx.fill();
+    mmx.fillStyle = done ? "rgba(127,191,159,0.55)" : "#fcde5a";
+    mmx.beginPath(); mmx.arc(px, py, done ? 1.6 : 2.6, 0, 7); mmx.fill();
   }
-  // player + facing
+  // player: pulsing halo + an arrowhead you can spot at a glance
   const [hx, hy] = toXY(heroPos.x, heroPos.z);
-  mmx.strokeStyle = "#ffffff"; mmx.lineWidth = 2;
-  mmx.beginPath(); mmx.moveTo(hx, hy); mmx.lineTo(hx + Math.sin(heroFacing) * 9, hy + Math.cos(heroFacing) * 9); mmx.stroke();
+  const pulse = 5.5 + Math.sin(performance.now() / 300) * 1.5;
+  mmx.fillStyle = "rgba(255,255,255,0.18)";
+  mmx.beginPath(); mmx.arc(hx, hy, pulse + 4, 0, 7); mmx.fill();
+  const fa = heroFacing;
+  const tip = [hx + Math.sin(fa) * 8, hy + Math.cos(fa) * 8];
+  const l = [hx + Math.sin(fa + 2.5) * 5, hy + Math.cos(fa + 2.5) * 5];
+  const r = [hx + Math.sin(fa - 2.5) * 5, hy + Math.cos(fa - 2.5) * 5];
   mmx.fillStyle = "#ffffff";
-  mmx.beginPath(); mmx.arc(hx, hy, 3, 0, 7); mmx.fill();
+  mmx.strokeStyle = "rgba(0,0,0,0.55)"; mmx.lineWidth = 1.5;
+  mmx.beginPath(); mmx.moveTo(tip[0], tip[1]); mmx.lineTo(l[0], l[1]); mmx.lineTo(r[0], r[1]); mmx.closePath();
+  mmx.fill(); mmx.stroke();
 }
 
 // completion watch
@@ -1261,6 +1325,9 @@ function animate() {
   headGroup.rotation.y += (hyaw - headGroup.rotation.y) * 0.12;
   lamp.intensity = 14 + Math.sin(t * 12) * 1.8;
   diyaGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.18);
+  wormMat.opacity = 0.6 + Math.sin(t * 0.7) * 0.2; // glowworms breathe slowly
+  wormMat2.opacity = 0.42 + Math.sin(t * 0.5 + 2) * 0.18;
+  eyeMat.opacity = 0.75 + Math.sin(t * 0.9) * 0.2; // the sky-eye shimmers
   // mouth moves while the Sutradhar speaks
   const talk = isSpeaking();
   mouth.scale.y = talk ? 0.35 + Math.abs(Math.sin(t * 18)) * 0.9 : 0.35;
