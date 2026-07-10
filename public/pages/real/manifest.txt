@@ -1,0 +1,154 @@
+p001.jpg|saraswati_page.png
+p002.jpg|ii_Makers_Page1.png
+p003.jpg|iii_Makers_Page2.png
+p004.jpg|V_Condolence page.png
+p005.jpg|vi_Tributes.png
+p006.jpg|vii_PICT FAMILY.jpg
+p007.jpg|viii_Team Pictoreal.png
+p008.jpg|batch of 2026.png
+p009.jpg|1_trustee.jpg
+p010.jpg|2_secretary.jpg
+p011.jpg|3_director.jpg
+p012.jpg|4_principal.jpg
+p013.jpg|5_Asmitamaam.jpg
+p014.jpg|6_handgesir.jpg
+p015.jpg|7_MS-JS.png
+p016.jpg|8_GS-T.png
+p017.jpg|9_DH-EH.png
+p018.jpg|10_PSH-EM.png
+p019.jpg|11_PRO-SMH.png
+p020.jpg|12_PH-PTH.png
+p021.jpg|13_MH-PH.png
+p022.jpg|14_CE DEPT.png
+p023.jpg|15_E&TC DEPT.png
+p024.jpg|16_IT DEPT.png
+p025.jpg|17_AIDS DEPT.png
+p026.jpg|18_ECE DEPT.png
+p027.jpg|19_F.Y.DEPT.png
+p028.jpg|20_ME PhD CE.png
+p029.jpg|21_ME PhD ENTCE.png
+p030.jpg|22_TNP.png
+p031.jpg|23_Admin.png
+p032.jpg|24_Housekeeping.png
+p033.jpg|25_BE1.png
+p034.jpg|26_BE2.png
+p035.jpg|27_BE3.png
+p036.jpg|28_BE4.png
+p037.jpg|29_BE5.png
+p038.jpg|30_BE6.png
+p039.jpg|31_BE7.png
+p040.jpg|32_BE8.png
+p041.jpg|33_BE9.png
+p042.jpg|34_BE10.png
+p043.jpg|35_BE11.png
+p044.jpg|38_ToppersList.png
+p045.jpg|43_from nukes to navigation.png
+p046.jpg|44_Unapologetically Me.png
+p047.jpg|45_1 Text. 2 hours. 67 reels.png
+p048.jpg|46_A Letter to My Younger Self.png
+p049.jpg|47_ALoveLikeFireAndWind.png
+p050.jpg|48_from cave walls to digital pixels.png
+p051.jpg|49_from cave walls to digital pixels.png
+p052.jpg|50_journey_across_states.png
+p053.jpg|51_journey_across_states.png
+p054.jpg|52_journey_across_states.png
+p055.jpg|53_Journey_Of_Life.png
+p056.jpg|54_Just A Mess.png
+p057.jpg|55_DreamingUs.png
+p058.jpg|56_The Overlap.png
+p059.jpg|57_inffrastructure the invisible layer.png
+p060.jpg|58_infrastructure the invisible layer.png
+p061.jpg|59_Synthesized, Not Stolen.png
+p062.jpg|60_Jai jawan.png
+p063.jpg|61_the_recipe_for_a_perfect_sunset.png
+p064.jpg|62_voices_of_the_unspoken.png
+p065.jpg|63_English Vss.png
+p066.jpg|64_English_Interview.png
+p067.jpg|65_English_Interview.png
+p068.jpg|66_English_Interview.png
+p069.jpg|67_English_Interview.png
+p070.jpg|70_english_podcast.png
+p071.jpg|71_ehsaas.png.png
+p072.jpg|72_स्नेहबंध.png
+p073.jpg|73_आसान ज़िंदगी की कठिन सच्चाई.png
+p074.jpg|74_बंद आँखें, खुली ज़िंदगी.png
+p075.jpg|75_बंद आँखें, खुली ज़िंदगी.png
+p076.jpg|76_हम सच नहीं, उसका आसान हिस्सा देखते हैं.png
+p077.jpg|77_BharatKiVastukala.png
+p078.jpg|78_खूबसूरत ज़िंदगी.png
+p079.jpg|79_मन नहीं करता तुम्हारा.png
+p080.jpg|80_उस गर्दिश में मौजूद सबसे चमकीले तारे से.png
+p081.jpg|81_तब लिखो.png
+p082.jpg|82_hindivss.png
+p083.jpg|83_hindi_interview.png
+p084.jpg|84_hindi_interview.png
+p085.jpg|85_pict_arts.png
+p086.jpg|86_pict_photography.png
+p087.jpg|87_मी आणि माझा शत्रुपक्ष.png
+p088.jpg|88_shabd_mage_sarakale_aapanahi.png
+p089.jpg|89_shabd_mage_sarakale_aapanahi.png
+p090.jpg|90_रिटायरमेंट नंतरची आई आणि तिची सेकंड इनिंग.png
+p091.jpg|91_चांदण्यांची मैफिल.png
+p092.jpg|92_punha_anolkhi.png
+p093.jpg|93_MisalPav.png
+p094.jpg|94_समारोप नव्हे, नव्या कोडची सुरुवात.png
+p095.jpg|95_असावा असा कोणीतरी.png
+p096.jpg|96_पडसाद वास्तू आणि वास्तव - एक मीमांसा.png
+p097.jpg|97_पडसाद वास्तू आणि वास्तव - एक मीमांसा.png
+p098.jpg|98_purusharth.png
+p099.jpg|99_हे कृष्णे....png
+p100.jpg|100_L अहिराणी - घर, माणसं आणि आठवणी.png
+p101.jpg|101_R अहिराणी - घर, माणसं आणि आठवणी.png
+p102.jpg|102_विद्रोह.png
+p103.jpg|103_पुढारी राजा.png
+p104.jpg|104_VelepalikadchaSaundarya.png
+p105.jpg|105_marathi_interview.png
+p106.jpg|106_marathi_interview.png
+p107.jpg|107_podcast_marathi.png
+p108.jpg|108_MarathiVSS.png
+p109.jpg|109_Aamche_Bappa_Winners.jpg
+p110.jpg|110_Jhalak_diwalichi.jpg
+p111.jpg|111_Manthan winners.png
+p112.jpg|112_picsoreel.png
+p113.jpg|113_picsoreel.png
+p114.jpg|114_Making.png
+p115.jpg|115_Making.png
+p116.jpg|116_eventreports.jpg
+p117.jpg|117_eventreports.jpg
+p118.jpg|118_EventCoords.png
+p119.jpg|119_EventCoords.png
+p120.jpg|120_EventCoords.png
+p121.jpg|121_Event photos.png
+p122.jpg|122_CTC&PARICHAY.png
+p123.jpg|123_Event photos.png
+p124.jpg|124_Event photos.png
+p125.jpg|125_clubreport.png
+p126.jpg|126_clubreport.jpg
+p127.jpg|127_clubreport.jpg
+p128.jpg|128_clubreport.jpg
+p129.jpg|129_clubreport.png
+p130.jpg|130_clubreport.png
+p131.jpg|131_clubreport.png
+p132.jpg|132_clubreport.png
+p133.jpg|133_clubreport.png
+p134.jpg|134_clubreport.png
+p135.jpg|135_clubreport.jpg
+p136.jpg|136_clubreport.jpg
+p137.jpg|137_clubreport.png
+p138.jpg|138_clubreport.png
+p139.jpg|139_clubreport.png
+p140.jpg|140_clubreport.png
+p141.jpg|141_clubreport.png
+p142.jpg|142_clubreport.jpg
+p143.jpg|143_clubreport.png
+p144.jpg|144_clubreport.png
+p145.jpg|145_clubreport.png
+p146.jpg|146_clubreport.png
+p147.jpg|147_clubreport.jpg
+p148.jpg|148_clubreport.png
+p149.jpg|149_clubreport.png
+p150.jpg|150_clubreport.jpg
+p151.jpg|151_clubreport.jpg
+p152.jpg|152_clubreport.jpg
+p153.jpg|153_clubreport.jpg
+p154.jpg|154_clubreport.jpg

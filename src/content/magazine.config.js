@@ -167,129 +167,35 @@ export const magazine = {
 };
 
 import { validateConfig } from "./validate-config.js";
+import { realTiers } from "./real-pages.js";
 
 // ---------------------------------------------------------------------------
-// PROTOTYPE dummy pages (English / Hindi / Marathi).
-//
-// Placeholder text so we can walk ~200 pages and test the read-aloud voice in
-// each language (browser TTS picks a matching voice; ElevenLabs, once wired,
-// reads them all). Delete this whole block and restore fragments rows/cols
-// when the real magazine content lands.
+// THE REAL Pictoreal Vol. 28 (draft 3) — 154 optimized page scans in magazine
+// order, replacing every placeholder tier. Each section keeps a language tag
+// so read-aloud picks the right voice (en / hi / mr).
 // ---------------------------------------------------------------------------
-const DUMMY_LANGS = [
-  {
-    key: "en",
-    tierId: "sample-en",
-    section: "Sample Pages — English",
-    intro: "A run of placeholder pages in English — dummy text for testing.",
-    title: "Sample Page",
-    caption: "English · placeholder",
-    palette: { wall: "#12403a", bg: "#082420" },
-    sentences: [
-      "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-      "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-      "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi.",
-      "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum.",
-      "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia.",
-      "Curabitur pretium tincidunt lacus, gravida malesuada libero fermentum.",
-      "Nam ornare accumsan ante, sollicitudin suscipit magna vulputate eget.",
-      "Vivamus fermentum semper porta, nunc diam velit adipiscing sapien.",
-      "Aenean commodo ligula eget dolor, cum sociis natoque penatibus magnis.",
-      "Donec quam felis, ultricies nec, pellentesque eu, pretium quis sem.",
-    ],
-  },
-  {
-    key: "hi",
-    tierId: "sample-hi",
-    section: "नमूना पृष्ठ — हिन्दी",
-    intro: "हिन्दी में कुछ नमूना पृष्ठ — केवल परीक्षण के लिए रखा गया पाठ।",
-    title: "नमूना पृष्ठ",
-    caption: "हिन्दी · नमूना",
-    palette: { wall: "#153f4a", bg: "#0a232a" },
-    sentences: [
-      "यह एक नमूना पाठ है जो केवल परीक्षण के लिए लिखा गया है।",
-      "अन्वेषा का अर्थ है खोज, और यह पत्रिका उसी भावना को समर्पित है।",
-      "शब्दों की यह धारा अभी अस्थायी है और बाद में बदल दी जाएगी।",
-      "प्राचीन कथाएँ पीढ़ी दर पीढ़ी मौखिक रूप से आगे बढ़ती रहीं।",
-      "कला और भाषा मिलकर किसी समाज की आत्मा को दर्शाती हैं।",
-      "इस पृष्ठ पर लिखा पाठ आवाज़ परीक्षण के लिए उपयोग किया जा रहा है।",
-      "दीपक की रोशनी में हर छिपी हुई बात धीरे-धीरे प्रकट होती है।",
-      "यह वाक्य केवल उदाहरण के तौर पर यहाँ रखा गया है।",
-      "सूत्रधार हर कहानी का धागा अपने हाथ में थामे रहता है।",
-      "खोज की यह यात्रा अंधकार से प्रकाश की ओर ले जाती है।",
-    ],
-  },
-  {
-    key: "mr",
-    tierId: "sample-mr",
-    section: "नमुना पाने — मराठी",
-    intro: "मराठीतील काही नमुना पाने — फक्त चाचणीसाठी ठेवलेला मजकूर.",
-    title: "नमुना पान",
-    caption: "मराठी · नमुना",
-    palette: { wall: "#123d44", bg: "#082226" },
-    sentences: [
-      "हा एक नमुना मजकूर आहे जो केवळ चाचणीसाठी लिहिला आहे.",
-      "अन्वेषा म्हणजे शोध, आणि हे मासिक त्याच भावनेला समर्पित आहे.",
-      "हा शब्दप्रवाह सध्या तात्पुरता आहे आणि नंतर बदलला जाईल.",
-      "प्राचीन कथा पिढ्यानपिढ्या मौखिक रूपाने पुढे जात राहिल्या.",
-      "कला आणि भाषा मिळून समाजाचा आत्मा दर्शवतात.",
-      "या पानावरील मजकूर आवाज चाचणीसाठी वापरला जात आहे.",
-      "दिव्याच्या प्रकाशात प्रत्येक लपलेली गोष्ट हळूहळू उघड होते.",
-      "हे वाक्य फक्त उदाहरण म्हणून येथे ठेवले आहे.",
-      "सूत्रधार प्रत्येक कथेचा धागा आपल्या हातात धरून ठेवतो.",
-      "शोधाचा हा प्रवास अंधारातून प्रकाशाकडे घेऊन जातो.",
-    ],
-  },
-];
+magazine.tiers = realTiers.map((t) => ({
+  id: t.id,
+  name: t.name,
+  section: t.section,
+  intro: t.intro,
+  palette: { wall: "#12403a", bg: "#082420" },
+  pages: t.pages.map((p, i) => ({
+    id: `${t.id}-${i + 1}`,
+    title: p.title,
+    lang: t.lang,
+    surfaceImage: `pages/real/${p.file}`,
+    hiddenImage: null,
+    caption: t.caption,
+    blurb: "",
+    archiveUrl: null,
+    fragmentId: `${t.id}-f${i + 1}`,
+  })),
+}));
+// 154 pages -> 7 x 22 completion grid
+magazine.fragments.rows = 7;
+magazine.fragments.cols = 22;
 
-const PER_LANG = 64; // 3 x 64 = 192 dummy + 8 curated = 200 pages total
-
-function dummyBlurb(sentences, n) {
-  const out = [];
-  for (let k = 0; k < 4; k++) out.push(sentences[(n * 3 + k) % sentences.length]);
-  return out.join(" ");
-}
-function dummyPlaceholder(num, label, bg) {
-  const svg =
-    `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='900'>` +
-    `<rect width='640' height='900' fill='${bg}'/>` +
-    `<rect x='26' y='26' width='588' height='848' fill='none' stroke='#e9dcc2' stroke-width='4'/>` +
-    `<text x='320' y='330' font-family='Georgia, serif' font-size='150' fill='#f4ece0' text-anchor='middle'>${num}</text>` +
-    `<text x='320' y='450' font-family='Georgia, serif' font-size='42' fill='#fcde5a' text-anchor='middle'>${label}</text>` +
-    `<text x='320' y='520' font-family='sans-serif' font-size='26' fill='#cbb68a' text-anchor='middle'>Pictoreal · Vol. 28</text>` +
-    `</svg>`;
-  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
-}
-
-for (const L of DUMMY_LANGS) {
-  const pages = [];
-  for (let i = 0; i < PER_LANG; i++) {
-    const tag = `${L.key}${String(i + 1).padStart(3, "0")}`;
-    pages.push({
-      id: `sp-${tag}`,
-      title: `${L.title} ${i + 1}`,
-      lang: L.key,
-      surfaceImage: dummyPlaceholder(i + 1, L.caption, L.palette.bg),
-      hiddenImage: null,
-      caption: L.caption,
-      blurb: dummyBlurb(L.sentences, i),
-      archiveUrl: null,
-      fragmentId: `sf-${tag}`,
-    });
-  }
-  magazine.tiers.push({
-    id: L.tierId,
-    name: L.section,
-    section: L.section,
-    intro: L.intro,
-    palette: L.palette,
-    pages,
-  });
-}
-
-// keep validation happy: rows * cols must equal the new total page count
-magazine.fragments.rows = 10;
-magazine.fragments.cols = 20;
 
 const check = validateConfig(magazine);
 if (!check.valid) {
