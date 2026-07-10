@@ -855,6 +855,27 @@ for (const s of slots) {
   pedMesh.setMatrixAt(s.i, dummy.matrix);
 }
 scene.add(frameMesh, panelMesh, pedMesh);
+
+// Real pages wear their actual cover art on the plaque (192px thumbs), so the
+// shelves read as a magazine wall instead of blank parchment. Each cover is
+// multiplied from black by the same torch-reveal as its frame; pressing E
+// still opens the full-resolution page in the reader.
+const coverGeo = new THREE.PlaneGeometry(1.42, 2.05);
+const thumbLoader = new THREE.TextureLoader();
+const coverMats = []; // slot index -> cover material (only for real pages)
+for (const s of slots) {
+  if (!s.stop) continue;
+  const tex = thumbLoader.load(s.stop.page.surfaceImage.replace("pages/real/", "pages/thumb/"));
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, color: 0x000000 });
+  const cover = new THREE.Mesh(coverGeo, m);
+  cover.position.set(s.x + Math.sin(s.angle) * 0.22, PLAQUE_Y, s.z + Math.cos(s.angle) * 0.22);
+  cover.rotation.y = s.angle;
+  scene.add(cover);
+  coverMats[s.i] = m;
+}
+const C_WHITE = new THREE.Color(0xffffff);
+
 // reveal palette
 const REVEAL = 16;
 const C_BLACK = new THREE.Color(0x040c0a);
@@ -1394,6 +1415,12 @@ function animate() {
     frameMesh.setColorAt(s.i, _tc);
     _tc.copy(C_BLACK).lerp(panelBase, prox * gain);
     panelMesh.setColorAt(s.i, _tc);
+    // the page's cover art fades in with the same torchlight
+    const cm = coverMats[s.i];
+    if (cm) {
+      const g = isDone(s.stop) ? 1 : 0.75 + 0.25 * Math.sin(t * 3 + s.i);
+      cm.color.copy(C_BLACK).lerp(C_WHITE, prox * g);
+    }
   }
   frameMesh.instanceColor.needsUpdate = true;
   panelMesh.instanceColor.needsUpdate = true;

@@ -49,6 +49,7 @@ function collectLines() {
     s.closingIncomplete,
   ].filter(Boolean);
   for (const tier of magazine.tiers) {
+    if (tier.intro) lines.push(tier.intro); // the Sutradhar's section introduction
     for (const p of tier.pages) {
       // matches readText in src/ui/reader.js: `${title}. ${caption}. ${blurb}`
       lines.push(`${p.title}. ${p.caption}. ${p.blurb || ""}`);
