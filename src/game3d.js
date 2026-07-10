@@ -373,15 +373,38 @@ function makeInscription() {
   return new THREE.CanvasTexture(cv);
 }
 const inscriptionMat = new THREE.MeshStandardMaterial({ map: makeInscription(), roughness: 0.95 });
+// Saraswati Vandana mural — the goddess of knowledge and the arts blesses the
+// descent from the left gate wall (the shloka is part of the artwork).
+const saraswatiTex = new THREE.TextureLoader().load("art/saraswati-carving.png");
+saraswatiTex.colorSpace = THREE.SRGBColorSpace;
+saraswatiTex.anisotropy = 8;
+const saraswatiMat = new THREE.MeshStandardMaterial({ map: saraswatiTex, roughness: 0.92 });
 const segW = 10;
 for (const sgn of [-1, 1]) {
   const seg = new THREE.Mesh(new THREE.BoxGeometry(segW, 13, 2.6), stone);
   seg.position.set(sgn * (GAP / 2 + segW / 2), GY + 6.5, GATE_Z);
   seg.receiveShadow = true; seg.castShadow = true;
   scene.add(seg);
-  const panel = new THREE.Mesh(new THREE.PlaneGeometry(segW - 1.5, 7.5), inscriptionMat);
-  panel.position.set(sgn * (GAP / 2 + segW / 2), GY + 6.5, GATE_Z + 1.35);
+  // left: the Saraswati mural (taller, image is portrait); right: club inscription
+  const mural = sgn === -1;
+  const panel = new THREE.Mesh(
+    new THREE.PlaneGeometry(mural ? 7.6 : segW - 1.5, mural ? 8.5 : 7.5),
+    mural ? saraswatiMat : inscriptionMat
+  );
+  // the mural must sit clear IN FRONT of its trim's face (trim face ends at
+  // +1.36) or the gold box hides it
+  panel.position.set(sgn * (GAP / 2 + segW / 2), GY + 6.4, GATE_Z + (mural ? 1.42 : 1.35));
   scene.add(panel);
+  if (mural) {
+    // a slim gold trim so the mural reads as a framed carving, and a soft
+    // warm glow washing over the goddess
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(8.1, 9.0, 0.12), gold);
+    trim.position.set(sgn * (GAP / 2 + segW / 2), GY + 6.4, GATE_Z + 1.3);
+    scene.add(trim);
+    const glow = new THREE.PointLight(0xffe0b0, 1.6, 14, 2);
+    glow.position.set(sgn * (GAP / 2 + segW / 2), GY + 7, GATE_Z + 4.5);
+    scene.add(glow);
+  }
 }
 const lintel = new THREE.Mesh(new THREE.BoxGeometry(GAP + segW * 2 + 2, 2.8, 3.2), stone);
 lintel.position.set(0, GY + 12, GATE_Z);
