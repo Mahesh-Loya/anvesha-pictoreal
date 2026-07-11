@@ -1,10 +1,8 @@
-import gsap from "gsap";
 import { playPageOpen } from "../systems/audio.js";
 import { speak, stopSpeaking, isVoiceEnabled } from "../systems/voice.js";
 
 const readPageIds = new Set();
 let currentPageData = null;
-let zoom = 1;
 let autoReadTimer = null; // pending auto-read; must die with the reader
 
 export function isReaderOpen() {
@@ -13,14 +11,12 @@ export function isReaderOpen() {
 
 export function openReader(pageData, onFirstRead) {
   // Guard against re-opening while already open (e.g. pressing E on a marker
-  // mid-read), which would reset zoom and re-render the same page.
+  // mid-read), which would re-render the same page.
   if (isReaderOpen()) return;
   currentPageData = pageData;
-  zoom = 1;
   playPageOpen();
 
   const root = document.getElementById("reader-root");
-  const hasHidden = Boolean(pageData.hiddenImage);
 
   const readText = `${pageData.title}. ${pageData.caption}. ${pageData.blurb || ""}`;
   const readLang = pageData.lang; // "en" | "hi" | "mr" (voice auto-detects if absent)
@@ -29,10 +25,14 @@ export function openReader(pageData, onFirstRead) {
       <button class="reader-close" aria-label="Close">×</button>
       <button class="reader-listen" aria-label="Read aloud">🔊 Read aloud</button>
       <div class="reader-image-wrap">
-        <img class="surface-layer" src="${pageData.surfaceImage}" alt="${pageData.title}" />
-        ${hasHidden ? `<img class="hidden-layer" src="${pageData.hiddenImage}" alt="${pageData.title} hidden layer" />` : ""}
+        <img class="surface-layer" src="${pageData.surfaceImage}" alt="${pageData.title}" draggable="false" />
+        <div class="reader-zoom">
+          <button class="rz" data-z="in" aria-label="Zoom in">+</button>
+          <button class="rz" data-z="out" aria-label="Zoom out">−</button>
+          <button class="rz" data-z="reset" aria-label="Fit to screen">↺</button>
+        </div>
+        <div class="reader-zoom-hint">scroll / pinch to zoom · drag to pan · double-tap to reset</div>
       </div>
-      ${hasHidden ? `<div class="reader-peel-hint">Drag or click a corner to lift the page</div>` : ""}
       ${pageData.blurb ? `<div class="reader-blurb">${pageData.blurb}</div>` : ""}
       <div class="reader-caption-plate">
         <span>${pageData.caption}</span>
@@ -58,17 +58,7 @@ export function openReader(pageData, onFirstRead) {
     }, 350);
   }
 
-  const wrap = root.querySelector(".reader-image-wrap");
-  wrap.addEventListener("wheel", (e) => {
-    e.preventDefault();
-    zoom = Math.min(3, Math.max(1, zoom - e.deltaY * 0.001));
-    wrap.querySelector(".surface-layer").style.transform = `scale(${zoom})`;
-  });
-
-  if (hasHidden) {
-    const hiddenImg = wrap.querySelector(".hidden-layer");
-    wrap.addEventListener("click", () => peel(hiddenImg));
-  }
+  setupPanZoom(root.querySelector(".reader-image-wrap"));
 
   if (!readPageIds.has(pageData.id)) {
     readPageIds.add(pageData.id);
@@ -76,12 +66,112 @@ export function openReader(pageData, onFirstRead) {
   }
 }
 
-function peel(hiddenImg) {
-  gsap.to(hiddenImg, {
-    duration: 0.6,
-    ease: "power2.out",
-    clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 100%)",
+// Full pan/zoom for the page image: mouse wheel (zoom to cursor), pinch (touch),
+// drag to pan when zoomed, double-tap/click to toggle, and +/-/fit buttons.
+function setupPanZoom(wrap) {
+  const img = wrap.querySelector(".surface-layer");
+  let scale = 1, tx = 0, ty = 0;
+  const MIN = 1, MAX = 5;
+  const pointers = new Map(); // active pointerId -> {x, y}
+  let panStart = null, pinchDist = 0, pinchScale = 1, moved = false, lastTap = 0;
+
+  const apply = () => { img.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`; };
+  const clamp = () => {
+    const r = wrap.getBoundingClientRect();
+    const mx = (r.width * (scale - 1)) / 2, my = (r.height * (scale - 1)) / 2;
+    tx = Math.max(-mx, Math.min(mx, tx));
+    ty = Math.max(-my, Math.min(my, ty));
+  };
+  // keep the content point under (px,py) — offsets from wrap centre — fixed
+  const zoomAt = (px, py, next) => {
+    next = Math.max(MIN, Math.min(MAX, next));
+    const k = next / scale;
+    tx = px - k * (px - tx);
+    ty = py - k * (py - ty);
+    scale = next;
+    if (scale <= MIN + 0.001) { scale = 1; tx = 0; ty = 0; }
+    clamp(); apply();
+    wrap.classList.toggle("zoomed", scale > 1);
+  };
+  const off = (cx, cy) => {
+    const r = wrap.getBoundingClientRect();
+    return [cx - (r.left + r.width / 2), cy - (r.top + r.height / 2)];
+  };
+
+  wrap.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const [px, py] = off(e.clientX, e.clientY);
+    zoomAt(px, py, scale * (e.deltaY < 0 ? 1.18 : 1 / 1.18));
+  }, { passive: false });
+
+  wrap.addEventListener("pointerdown", (e) => {
+    wrap.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    moved = false;
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinchDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      pinchScale = scale;
+      panStart = null;
+    } else {
+      panStart = { x: e.clientX, y: e.clientY, tx, ty };
+    }
   });
+  wrap.addEventListener("pointermove", (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.size >= 2) {
+      const [a, b] = [...pointers.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+      const [mx, my] = off((a.x + b.x) / 2, (a.y + b.y) / 2);
+      zoomAt(mx, my, pinchScale * (dist / pinchDist));
+      moved = true;
+    } else if (panStart && scale > 1) {
+      tx = panStart.tx + (e.clientX - panStart.x);
+      ty = panStart.ty + (e.clientY - panStart.y);
+      moved = true;
+      clamp(); apply();
+    }
+  });
+  const release = (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size === 1) {
+      const [p] = [...pointers.values()];
+      panStart = { x: p.x, y: p.y, tx, ty };
+    } else if (pointers.size === 0) {
+      panStart = null;
+      // double-tap (touch) to toggle zoom
+      if (e.pointerType === "touch" && !moved) {
+        const now = Date.now();
+        if (now - lastTap < 300) { const [px, py] = off(e.clientX, e.clientY); zoomAt(px, py, scale > 1 ? 1 : 2.6); }
+        lastTap = now;
+      }
+    }
+  };
+  wrap.addEventListener("pointerup", release);
+  wrap.addEventListener("pointercancel", release);
+  wrap.addEventListener("dblclick", (e) => {
+    e.preventDefault();
+    const [px, py] = off(e.clientX, e.clientY);
+    zoomAt(px, py, scale > 1 ? 1 : 2.6);
+  });
+
+  // the +/-/fit buttons (stop their taps from starting a pan)
+  const zoomBox = wrap.querySelector(".reader-zoom");
+  zoomBox.addEventListener("pointerdown", (e) => e.stopPropagation());
+  zoomBox.querySelectorAll(".rz").forEach((b) => {
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const z = b.getAttribute("data-z");
+      if (z === "in") zoomAt(0, 0, scale * 1.4);
+      else if (z === "out") zoomAt(0, 0, scale / 1.4);
+      else zoomAt(0, 0, 1);
+    });
+  });
+
+  // fade the hint away after a few seconds
+  const hint = wrap.querySelector(".reader-zoom-hint");
+  setTimeout(() => hint && hint.classList.add("gone"), 3600);
 }
 
 export function closeReader() {

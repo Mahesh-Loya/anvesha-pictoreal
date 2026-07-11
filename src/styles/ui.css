@@ -165,8 +165,8 @@ body.touch #three-root canvas { touch-action: none; }
 
 .reader-card {
   position: relative;
-  width: min(90vw, 520px);
-  height: min(85vh, 720px);
+  width: min(94vw, 640px);
+  height: min(92vh, 860px);
   background: var(--archival-ivory);
   border-radius: 4px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
@@ -180,7 +180,10 @@ body.touch #three-root canvas { touch-action: none; }
   flex: 1;
   overflow: hidden;
   cursor: grab;
+  touch-action: none; /* we handle pinch/drag ourselves */
+  background: #0c0c0c;
 }
+.reader-image-wrap.zoomed { cursor: grabbing; }
 
 .reader-image-wrap img {
   position: absolute;
@@ -190,7 +193,56 @@ body.touch #three-root canvas { touch-action: none; }
   height: 100%;
   object-fit: contain;
   transform-origin: center center;
+  will-change: transform;
+  user-select: none;
+  -webkit-user-drag: none;
 }
+
+/* zoom controls */
+.reader-zoom {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reader-zoom .rz {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--linework-gold);
+  background: rgba(12, 12, 12, 0.72);
+  color: #f4ece0;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.reader-zoom .rz:active { background: rgba(40, 70, 58, 0.9); }
+.reader-zoom-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 6;
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  color: #f4ece0;
+  background: rgba(12, 12, 12, 0.6);
+  border: 1px solid rgba(223, 230, 226, 0.25);
+  border-radius: 14px;
+  padding: 5px 12px;
+  opacity: 0.9;
+  transition: opacity 0.6s;
+}
+.reader-zoom-hint.gone { opacity: 0; }
 
 .reader-image-wrap img.hidden-layer {
   clip-path: polygon(0 0, 0 0, 0 0);
