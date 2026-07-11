@@ -51,11 +51,28 @@ export function playCompletionSwell() {
   });
 }
 
-// ---- ambient music: a slow evolving raga-ish drone (synthesized, no files) ----
+// ---- ambient music ----
+// Primary: a real track — "Desert City" by Kevin MacLeod (incompetech.com),
+// licensed CC BY 4.0 — looping softly under the exploration.
+// Fallback: the original synthesized tanpura drone, if the file can't play.
 let musicMaster = null;
+let musicTrack = null; // the <audio> element when the mp3 route works
 const MUSIC_VOL = 0.06;
+const TRACK_VOL = 0.32;
 
 export function startAmbientMusic() {
+  if (musicMaster || musicTrack) return;
+  const track = new Audio("audio/ambient-music.mp3");
+  track.loop = true;
+  track.volume = state.audioMuted ? 0 : TRACK_VOL;
+  track
+    .play()
+    .then(() => { musicTrack = track; })
+    .catch(() => startDroneMusic()); // file missing/blocked -> synth drone
+  track.addEventListener("error", () => { if (!musicMaster) startDroneMusic(); });
+}
+
+function startDroneMusic() {
   if (musicMaster) return;
   const c = getContext();
   musicMaster = c.createGain();
@@ -111,6 +128,7 @@ export function startAmbientMusic() {
 export function toggleMute() {
   state.audioMuted = !state.audioMuted;
   if (musicMaster) musicMaster.gain.value = state.audioMuted ? 0 : MUSIC_VOL;
+  if (musicTrack) musicTrack.volume = state.audioMuted ? 0 : TRACK_VOL;
   return state.audioMuted;
 }
 

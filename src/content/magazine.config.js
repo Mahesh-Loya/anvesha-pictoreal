@@ -168,6 +168,7 @@ export const magazine = {
 
 import { validateConfig } from "./validate-config.js";
 import { realTiers } from "./real-pages.js";
+import { pageBlurbs } from "./page-blurbs.js";
 
 // ---------------------------------------------------------------------------
 // THE REAL Pictoreal Vol. 28 (draft 3) — 154 optimized page scans in magazine
@@ -187,7 +188,8 @@ magazine.tiers = realTiers.map((t) => ({
     surfaceImage: `pages/real/${p.file}`,
     hiddenImage: null,
     caption: t.caption,
-    blurb: "",
+    // real spoken summary of the page's content (from reading the print)
+    blurb: pageBlurbs[p.file] || "",
     archiveUrl: null,
     fragmentId: `${t.id}-f${i + 1}`,
   })),
