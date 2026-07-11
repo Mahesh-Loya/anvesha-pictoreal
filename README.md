@@ -6,6 +6,13 @@ Sutradhar, and uncover all 154 pages of the magazine hidden in its niches.
 
 **Play it:** https://mahesh-loya.github.io/anvesha-pictoreal/
 
+**Cinematic showcase** (for events/projectors — a looping auto-flight with
+captions and a QR finale; any key hands control to a live player):
+https://mahesh-loya.github.io/anvesha-pictoreal/?showcase
+
+**QR code** to the game (printable): `public/qr.png` — also served at
+https://mahesh-loya.github.io/anvesha-pictoreal/qr.png
+
 - `npm run dev` — local dev server
 - `npm test` — test suite
 - `npm run build` — production build (auto-deployed to GitHub Pages on push to master)
