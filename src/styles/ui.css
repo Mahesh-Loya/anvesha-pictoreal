@@ -696,14 +696,19 @@ body.touch #three-root canvas { touch-action: none; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 16px;
+  padding: 20px;
+  box-sizing: border-box;
   background: #051310;
   transition: opacity 0.8s;
 }
 #splash.gone { opacity: 0; pointer-events: none; }
 #splash video {
-  width: min(78vw, 720px);
-  max-height: 62vh;
+  width: min(84vw, 640px);
+  max-height: 50vh;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: contain; /* keep the video's own aspect — never squish it */
   border-radius: 14px;
   filter: drop-shadow(0 0 46px rgba(20, 120, 100, 0.4));
   animation: splashFloat 4s ease-in-out infinite;
