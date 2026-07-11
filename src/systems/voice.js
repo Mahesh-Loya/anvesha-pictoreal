@@ -19,11 +19,14 @@ export function voiceKey(text) {
 
 // ---- pre-generated clip manifest (loaded once, best-effort) ----
 let manifest = null;
+let manifestPending = false; // true while the fetch is still in flight
 if (typeof fetch !== "undefined") {
+  manifestPending = true;
   fetch("voice/manifest.json")
     .then((r) => (r.ok ? r.json() : null))
-    .then((m) => { manifest = m; })
-    .catch(() => {});
+    .then((m) => { manifest = m || {}; })
+    .catch(() => { manifest = {}; })
+    .finally(() => { manifestPending = false; });
 }
 
 // ---- browser TTS voice selection (Indian-accented preferred) ----
@@ -66,18 +69,42 @@ function pickVoice(lang = "en") {
 // ---- playback state (covers both a clip and the synth) ----
 let audio = null; // current HTMLAudioElement
 
+let speakGen = 0; // bumped on every speak/stop so stale async callbacks bail
+
 export function speak(text, { rate = 0.9, pitch = 0.92, lang } = {}) {
   if (!state.voiceEnabled || !text) return;
   stopSpeaking();
-
+  const gen = ++speakGen;
   const effLang = lang || detectLang(text);
 
+  // If the clip manifest is still loading, wait for it before deciding — else
+  // the very first line (e.g. the welcome) speaks via browser TTS and then the
+  // real clip can double up. Once resolved, replay this same request.
+  if (manifestPending) {
+    Promise.resolve().then(async () => {
+      while (manifestPending) await new Promise((r) => setTimeout(r, 40));
+      if (gen === speakGen) playLine(text, rate, pitch, effLang, gen);
+    });
+    return;
+  }
+  playLine(text, rate, pitch, effLang, gen);
+}
+
+function playLine(text, rate, pitch, effLang, gen) {
+  if (gen !== speakGen || !state.voiceEnabled) return;
   // 1. a pre-generated ElevenLabs clip, if we have one for this exact line
   const file = manifest && manifest[voiceKey(text)];
   if (file) {
-    audio = new Audio(`voice/${file}`);
-    audio.play().catch(() => { audio = null; speakSynth(text, rate, pitch, effLang); });
-    audio.addEventListener("ended", () => { audio = null; });
+    const a = new Audio(`voice/${file}`);
+    audio = a;
+    a.addEventListener("ended", () => { if (audio === a) audio = null; });
+    a.play()
+      .then(() => { synth?.cancel(); }) // clip is playing — silence any stray TTS
+      .catch(() => {
+        // only fall back to TTS if this is still current AND the clip really
+        // isn't playing (mobile sometimes rejects play() yet plays anyway)
+        if (gen === speakGen && (a.paused || a.ended)) { audio = null; speakSynth(text, rate, pitch, effLang); }
+      });
     return;
   }
   // 2. browser TTS fallback
@@ -97,6 +124,7 @@ function speakSynth(text, rate, pitch, lang) {
 }
 
 export function stopSpeaking() {
+  speakGen++; // invalidate any pending manifest-wait / play() fallback
   synth?.cancel();
   if (audio) { audio.pause(); audio.currentTime = 0; audio = null; }
 }
