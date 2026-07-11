@@ -8,7 +8,7 @@ import { generateCave, isWalkable, slideMove } from "./world/cave.js";
 import gsap from "gsap";
 import { magazine } from "./content/magazine.config.js";
 import { state } from "./state.js";
-import { surfaceFragment, isJourneyComplete, getSurfacedCount } from "./systems/fragments.js";
+import { surfaceFragment, isJourneyComplete, getSurfacedCount, getTotalFragments } from "./systems/fragments.js";
 import { playFragmentChime, playFootstep, startAmbientMusic, playDescentRumble } from "./systems/audio.js";
 import { openReader, isReaderOpen, closeReader } from "./ui/reader.js";
 import { openJournal, isJournalOpen, closeJournal } from "./ui/journal.js";
@@ -1013,6 +1013,7 @@ function begin() {
   started = true;
   splash.classList.add("gone");
   startAmbientMusic();
+  if (SHOWCASE) { startShowcase(); return; }
   // dramatic swoop-in: place the camera high and far; the follow-lerp glides
   // it down to the Sutradhar at the well's mouth while the Sutradhar speaks
   camera.position.set(0, 34, GATE_Z + 60);
@@ -1052,6 +1053,7 @@ addEventListener("keydown", (e) => {
     if (k === " " || k === "enter") begin();
     return;
   }
+  if (showcaseMode) { exitShowcase(); return; } // any key hands over control
   if (k === " " || k === "enter" || k === "e") interact();
   // quick shortcuts: index / journal / cycle camera angle
   if (!isAnyOverlayOpen()) {
@@ -1124,6 +1126,7 @@ renderer.domElement.addEventListener("pointerup", (e) => {
   const wasDrag = dragging;
   down = null;
   dragging = false;
+  if (showcaseMode) { exitShowcase(); return; } // tap hands over control
   if (isNarrating()) { advanceNarration(); return; }
   if (isAnyOverlayOpen()) return;
   if (pointerLocked) {
@@ -1177,6 +1180,97 @@ document.getElementById("hud-theme")?.addEventListener("click", () => {
   applyTheme(!brightMode);
   document.querySelector("canvas")?.focus();
 });
+
+// ---- SHOWCASE MODE: a looping cinematic auto-flight for the stage ----
+// Open the game with ?showcase and tap once: the camera flies itself through
+// the gate, orbits the emblem, sweeps a page-lined tunnel, looks up at the
+// sky-eye, then pulls back to a title card with the QR — and loops. Any
+// key/tap hands control to a live player. Made for the launch projector.
+const SHOWCASE = new URLSearchParams(location.search).has("showcase");
+let showcaseMode = false;
+let scStart = 0;
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+const SC_SEGS = [
+  { dur: 6,  from: V3(0, 26, GATE_Z + 50), to: V3(0, 10, GATE_Z + 14), lookFrom: V3(0, 8, GATE_Z), lookTo: V3(0, 5, GATE_Z - 8),
+    cap: "PICTOREAL · VOLUME 28" },
+  { dur: 6,  from: V3(0, 9, GATE_Z + 2),  to: V3(0, 5, RAMP_BOT + 6), lookFrom: V3(0, 5, GATE_Z - 20), lookTo: V3(0, 6, 0),
+    cap: "अन्वेषा — the seeking" },
+  { dur: 11, orbit: { cx: 0, cz: 0, r: 23, h: 7.5, a0: 0.5, a1: 0.5 + Math.PI * 1.5 }, look: V3(0, 6.5, 0),
+    cap: "A magazine you can walk through" },
+  { dur: 7,  from: V3(10, 4.5, -4), to: V3(74, 5, -2), lookFrom: V3(46, 4, 0), lookTo: V3(92, 4, 0),
+    cap: "154 pages hidden in the seeing-eye" },
+  { dur: 7,  from: V3(46, 6, 14), to: V3(4, 9, 26), lookFrom: V3(10, 16, 0), lookTo: V3(0, 26, 0),
+    cap: "Narrated in three tongues" },
+  { dur: 8,  from: V3(0, 16, 34), to: V3(0, 66, 104), lookFrom: V3(0, 8, 0), lookTo: V3(0, 0, 0),
+    cap: "Come, seeker — the lamp is lit" },
+  { dur: 7,  hold: true, cap: "" }, // title card
+];
+const SC_TOTAL = SC_SEGS.reduce((a, s) => a + s.dur, 0);
+const smooth = (u) => u * u * (3 - 2 * u);
+
+function buildShowcaseUi() {
+  const el = document.createElement("div");
+  el.id = "showcase-ui";
+  el.innerHTML = `
+    <div class="sc-caption" id="sc-caption"></div>
+    <div class="sc-card" id="sc-card">
+      <img class="sc-logo" src="pictoreal-logo.png" alt="Pictoreal" />
+      <div class="sc-title">ANVESHA</div>
+      <div class="sc-sub">Pictoreal · Volume 28 — an explorable magazine</div>
+      <img class="sc-qr" src="qr.png" alt="Scan to explore" />
+      <div class="sc-scan">Scan to explore on your phone</div>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+function startShowcase() {
+  showcaseMode = true;
+  gateOpen = true;
+  arrived = true; // no narration pop-ups during the flight
+  heroPos.set(0, 0, 12);
+  heroFacing = Math.PI; // faces the emblem, back to the gate
+  placeHero();
+  applyTheme(true);
+  scene.fog.density = 0.005; // long, clear sightlines for the flythrough
+  document.body.classList.add("showcasing"); // hide HUD/minimap/hints
+  buildShowcaseUi();
+  scStart = clock.getElapsedTime();
+}
+
+function exitShowcase() {
+  showcaseMode = false;
+  document.getElementById("showcase-ui")?.remove();
+  document.body.classList.remove("showcasing");
+  applyTheme(false);
+  camYaw = 0;
+  camPitch = 0.66;
+  heroPos.set(0, 0, 12);
+  placeHero();
+  narrate(magazine.sutradhar.arrive);
+}
+
+function runShowcaseCamera(t) {
+  let u = (t - scStart) % SC_TOTAL;
+  let seg = SC_SEGS[0], segT = 0, idx = 0;
+  for (const s of SC_SEGS) { if (u < s.dur) { seg = s; segT = u / s.dur; break; } u -= s.dur; idx++; }
+  const k = smooth(segT);
+  if (seg.orbit) {
+    const o = seg.orbit;
+    const a = o.a0 + (o.a1 - o.a0) * k;
+    camera.position.set(o.cx + Math.sin(a) * o.r, o.h + Math.sin(k * Math.PI) * 2, o.cz + Math.cos(a) * o.r);
+    camera.lookAt(seg.look);
+  } else if (!seg.hold) {
+    camera.position.lerpVectors(seg.from, seg.to, k);
+    const look = new THREE.Vector3().lerpVectors(seg.lookFrom, seg.lookTo, k);
+    camera.lookAt(look);
+  }
+  // captions + the finale card
+  const capEl = document.getElementById("sc-caption");
+  const cardEl = document.getElementById("sc-card");
+  if (capEl && capEl.textContent !== seg.cap) capEl.textContent = seg.cap;
+  if (capEl) capEl.classList.toggle("on", !!seg.cap && segT > 0.08 && segT < 0.92);
+  if (cardEl) cardEl.classList.toggle("on", !!seg.hold);
+}
 
 // ---- minimap ----
 const mm = document.getElementById("minimap");
@@ -1251,7 +1345,7 @@ function animate() {
   const dt = clock.getDelta();
   const t = clock.elapsedTime; // updated by getDelta()
   if (heroMixer) heroMixer.update(dt);
-  const overlay = isAnyOverlayOpen() || !started || settling;
+  const overlay = isAnyOverlayOpen() || !started || settling || showcaseMode;
   if (overlay && pointerLocked) document.exitPointerLock();
 
   // the gate swings open once triggered
@@ -1377,6 +1471,9 @@ function animate() {
   diyaGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.18);
   wormMat.opacity = 0.55 + Math.sin(t * 0.7) * 0.18; // glowworms breathe slowly
   eyeMat.opacity = 0.75 + Math.sin(t * 0.9) * 0.2; // the sky-eye shimmers
+  // the emblem grows brighter as the seeker uncovers the magazine
+  const scProgress = getSurfacedCount() / getTotalFragments();
+  emblemLight.intensity = 6 + scProgress * 9 + Math.sin(t * 2.2) * 0.5;
   // mouth moves while the Sutradhar speaks
   const talk = isSpeaking();
   mouth.scale.y = talk ? 0.35 + Math.abs(Math.sin(t * 18)) * 0.9 : 0.35;
@@ -1405,9 +1502,10 @@ function animate() {
   }
 
   // every niche hides in the dark and is REVEALED by the torch as you near it
+  // (in showcase mode the whole gallery glows for the flythrough)
   for (const s of slots) {
     const d = Math.hypot(s.x - heroPos.x, s.z - heroPos.z);
-    const prox = Math.max(0, Math.min(1, 1 - d / REVEAL));
+    const prox = showcaseMode ? 1 : Math.max(0, Math.min(1, 1 - d / REVEAL));
     let frameBase, panelBase, gain;
     if (s.sealed) { frameBase = C_SEAL; panelBase = C_SEAL; gain = 0.45; }
     else if (isDone(s.stop)) { frameBase = C_GOLD; panelBase = C_DONE; gain = 1; }
@@ -1416,10 +1514,11 @@ function animate() {
     frameMesh.setColorAt(s.i, _tc);
     _tc.copy(C_BLACK).lerp(panelBase, prox * gain);
     panelMesh.setColorAt(s.i, _tc);
-    // the page's cover art fades in with the same torchlight
+    // the page's cover art fades in with the same torchlight (capped in
+    // showcase so fully-lit covers don't blow out under bloom)
     const cm = coverMats[s.i];
     if (cm) {
-      const g = isDone(s.stop) ? 1 : 0.75 + 0.25 * Math.sin(t * 3 + s.i);
+      const g = showcaseMode ? 0.8 : isDone(s.stop) ? 1 : 0.75 + 0.25 * Math.sin(t * 3 + s.i);
       cm.color.copy(C_BLACK).lerp(C_WHITE, prox * g);
     }
   }
@@ -1434,6 +1533,9 @@ function animate() {
   }
   motes.geometry.attributes.position.needsUpdate = true;
 
+  if (showcaseMode) {
+    runShowcaseCamera(t); // the stage flythrough owns the camera
+  } else {
   // third-person camera: trails behind the hero unless the player is steering
   if (t > manualUntil && moving) {
     let target = heroFacing + Math.PI;
@@ -1463,6 +1565,7 @@ function animate() {
   const desired = new THREE.Vector3(hero.position.x + ox, hero.position.y + oy, hero.position.z + oz);
   camera.position.lerp(desired, settling ? 0.02 : 0.12);
   camera.lookAt(hero.position.x - Math.sin(heroFacing) * 2, hero.position.y + 1.6, hero.position.z - Math.cos(heroFacing) * 2);
+  }
 
   // proximity prompt
   if (!overlay) {
@@ -1480,3 +1583,8 @@ function animate() {
   requestAnimationFrame(animate);
 }
 animate();
+
+// world built — flip the splash from "loading" to the real prompt (kind to
+// event crowds on slow venue Wi-Fi: the button appears only when it will work)
+const promptEl = document.getElementById("splash-prompt");
+if (promptEl) promptEl.textContent = SHOWCASE ? "Tap to begin the showcase" : "Tap or press Space to begin the Anvesha";
