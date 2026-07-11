@@ -1,13 +1,11 @@
 import { magazine } from "../content/magazine.config.js";
 import { state } from "../state.js";
+import { jumpToPage } from "./jump.js";
+export { setJumpHandler } from "./jump.js";
 
 // The Index — the magazine's table of contents. Lists every section and its
 // pages with lock/done state; clicking an unlocked page jumps the Sutradhar
 // there. The jump behaviour is provided by the journey scene.
-let jumpHandler = null;
-export function setJumpHandler(fn) {
-  jumpHandler = fn;
-}
 
 // Flatten to know global ordering (for lock state = first not-done).
 function flatPages() {
@@ -31,10 +29,9 @@ export function openContents() {
         .map((page) => {
           const done = state.fragmentsSurfaced.has(page.fragmentId);
           const idxInAll = all.findIndex((p) => p.id === page.id);
-          // PROTOTYPE: every page is jumpable from the index so we can hop to
-          // any language and test the read-aloud voice. Restore `idxInAll > cur`
-          // to re-enable sequential unlocking.
-          const locked = false;
+          // pages unlock as you seek: any page you've uncovered stays open, plus
+          // the current frontier; everything beyond waits in the dark
+          const locked = idxInAll > cur;
           const cls = done ? "done" : locked ? "locked" : "current";
           const mark = done ? "✓" : locked ? "✦" : "▸";
           gi++;
@@ -62,7 +59,7 @@ export function openContents() {
     btn.addEventListener("click", () => {
       const pageId = btn.getAttribute("data-page");
       closeContents();
-      if (jumpHandler) jumpHandler(pageId);
+      jumpToPage(pageId);
     });
   });
 }

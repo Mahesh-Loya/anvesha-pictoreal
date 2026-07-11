@@ -12,7 +12,8 @@ import { surfaceFragment, isJourneyComplete, getSurfacedCount } from "./systems/
 import { playFragmentChime, playFootstep, startAmbientMusic, playDescentRumble } from "./systems/audio.js";
 import { openReader, isReaderOpen, closeReader } from "./ui/reader.js";
 import { openJournal, isJournalOpen, closeJournal } from "./ui/journal.js";
-import { openContents, isContentsOpen, closeContents, setJumpHandler } from "./ui/contents.js";
+import { openContents, isContentsOpen, closeContents } from "./ui/contents.js";
+import { setJumpHandler } from "./ui/jump.js";
 import { narrate, advanceNarration, isNarrating } from "./ui/narration.js";
 import { mountHud, updateHudCount, getHudJournalButtonRect } from "./ui/hud.js";
 import { isAnyOverlayOpen } from "./ui/overlays.js";

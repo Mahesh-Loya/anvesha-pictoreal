@@ -1,71 +1,61 @@
 import { state } from "../state.js";
 import { magazine } from "../content/magazine.config.js";
-import gsap from "gsap";
+import { getSurfacedCount, getTotalFragments } from "../systems/fragments.js";
+import { jumpToPage } from "./jump.js";
 
-export function openJournal({ animateThread = false } = {}) {
+// The Collection — a gallery of every page in the magazine. Pages you've
+// uncovered show their cover in full colour; the rest wait as dark, locked
+// tiles. Tap an uncovered page to fly the Sutradhar back to it.
+export function openJournal() {
   const root = document.getElementById("journal-root");
-  const { rows, cols } = magazine.fragments;
-  const allFragmentIds = magazine.tiers.flatMap((t) => t.pages.map((p) => p.fragmentId));
 
-  const slots = allFragmentIds
-    .map((id) => `<div class="journal-slot ${state.fragmentsSurfaced.has(id) ? "filled" : ""}" data-fragment="${id}"></div>`)
+  const sections = magazine.tiers
+    .map((tier) => {
+      const tiles = tier.pages
+        .map((page) => {
+          const done = state.fragmentsSurfaced.has(page.fragmentId);
+          const thumb = page.surfaceImage.replace("pages/real/", "pages/thumb/");
+          if (done) {
+            return `<button class="col-tile found" data-page="${page.id}" title="${page.title}">
+              <img src="${thumb}" alt="${page.title}" loading="lazy" />
+            </button>`;
+          }
+          return `<div class="col-tile locked" title="Not yet uncovered">✦</div>`;
+        })
+        .join("");
+      return `<div class="col-section">
+        <div class="col-section-name">${tier.section}</div>
+        <div class="col-grid">${tiles}</div>
+      </div>`;
+    })
     .join("");
 
   root.innerHTML = `
-    <div class="journal-card folk-border" style="grid-template-columns: repeat(${cols}, 1fr); grid-template-rows: repeat(${rows}, 1fr);">
-      <button class="journal-close">×</button>
-      ${slots}
-      <svg class="journal-thread" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>
-    </div>
-  `;
+    <div class="collection-card folk-border">
+      <button class="collection-close" aria-label="Close">×</button>
+      <div class="collection-head">
+        <span>Your Collection</span>
+        <span class="collection-count">${getSurfacedCount()} / ${getTotalFragments()} uncovered</span>
+      </div>
+      <div class="collection-scroll">${sections}</div>
+    </div>`;
   root.classList.add("visible");
-  root.querySelector(".journal-close").addEventListener("click", closeJournal);
 
-  if (animateThread) {
-    requestAnimationFrame(() => drawThreadOfLight(root, allFragmentIds));
-  }
-}
-
-function drawThreadOfLight(root, allFragmentIds) {
-  const card = root.querySelector(".journal-card");
-  const svg = root.querySelector(".journal-thread");
-  const cardRect = card.getBoundingClientRect();
-
-  const points = allFragmentIds
-    .filter((id) => state.fragmentsSurfaced.has(id))
-    .map((id) => {
-      const slot = card.querySelector(`[data-fragment="${id}"]`);
-      const r = slot.getBoundingClientRect();
-      const x = (r.left + r.width / 2 - cardRect.left) / cardRect.width;
-      const y = (r.top + r.height / 2 - cardRect.top) / cardRect.height;
-      return `${x},${y}`;
+  root.querySelector(".collection-close").addEventListener("click", closeJournal);
+  root.querySelectorAll(".col-tile.found").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const pageId = btn.getAttribute("data-page");
+      closeJournal();
+      jumpToPage(pageId);
     });
-
-  const line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-  line.setAttribute("points", points.join(" "));
-  line.setAttribute("fill", "none");
-  // Literal hex (mirrors --diya-gold): CSS var() is not reliably resolved in
-  // an SVG presentation attribute across Firefox/Safari.
-  line.setAttribute("stroke", "#FCDE5A");
-  // vector-effect makes stroke-width a SCREEN-pixel value (independent of the
-  // 0..1 viewBox), so use a px width here, not a tiny user-unit fraction.
-  line.setAttribute("stroke-width", "3");
-  line.setAttribute("vector-effect", "non-scaling-stroke");
-  svg.appendChild(line);
-
-  const length = line.getTotalLength();
-  line.style.strokeDasharray = `${length}`;
-  line.style.strokeDashoffset = `${length}`;
-  gsap.to(line, { strokeDashoffset: 0, duration: 1.2, ease: "power1.inOut" });
+  });
 }
 
 export function closeJournal() {
   const root = document.getElementById("journal-root");
   root.classList.remove("visible");
   root.innerHTML = "";
-  // Clicking the close button moved DOM focus off the Kaplay canvas, which
-  // would leave keyboard input (movement, E) dead until the player clicks
-  // back. Restore focus so play resumes immediately.
+  // Clicking a button steals focus from the canvas; restore so keys work.
   document.querySelector("canvas")?.focus();
 }
 
