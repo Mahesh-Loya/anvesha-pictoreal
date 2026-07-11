@@ -181,7 +181,6 @@ body.touch #three-root canvas { touch-action: none; }
   overflow: hidden;
   cursor: grab;
   touch-action: none; /* we handle pinch/drag ourselves */
-  background: #0c0c0c;
 }
 .reader-image-wrap.zoomed { cursor: grabbing; }
 
@@ -198,32 +197,6 @@ body.touch #three-root canvas { touch-action: none; }
   -webkit-user-drag: none;
 }
 
-/* zoom controls */
-.reader-zoom {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  z-index: 6;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.reader-zoom .rz {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  border: 1px solid var(--linework-gold);
-  background: rgba(12, 12, 12, 0.72);
-  color: #f4ece0;
-  font-size: 22px;
-  line-height: 1;
-  cursor: pointer;
-  backdrop-filter: blur(3px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.reader-zoom .rz:active { background: rgba(40, 70, 58, 0.9); }
 .reader-zoom-hint {
   position: absolute;
   left: 50%;

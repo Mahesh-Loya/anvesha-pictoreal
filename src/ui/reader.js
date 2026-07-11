@@ -26,11 +26,6 @@ export function openReader(pageData, onFirstRead) {
       <button class="reader-listen" aria-label="Read aloud">🔊 Read aloud</button>
       <div class="reader-image-wrap">
         <img class="surface-layer" src="${pageData.surfaceImage}" alt="${pageData.title}" draggable="false" />
-        <div class="reader-zoom">
-          <button class="rz" data-z="in" aria-label="Zoom in">+</button>
-          <button class="rz" data-z="out" aria-label="Zoom out">−</button>
-          <button class="rz" data-z="reset" aria-label="Fit to screen">↺</button>
-        </div>
         <div class="reader-zoom-hint">scroll / pinch to zoom · drag to pan · double-tap to reset</div>
       </div>
       ${pageData.blurb ? `<div class="reader-blurb">${pageData.blurb}</div>` : ""}
@@ -156,20 +151,7 @@ function setupPanZoom(wrap) {
     zoomAt(px, py, scale > 1 ? 1 : 2.6);
   });
 
-  // the +/-/fit buttons (stop their taps from starting a pan)
-  const zoomBox = wrap.querySelector(".reader-zoom");
-  zoomBox.addEventListener("pointerdown", (e) => e.stopPropagation());
-  zoomBox.querySelectorAll(".rz").forEach((b) => {
-    b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const z = b.getAttribute("data-z");
-      if (z === "in") zoomAt(0, 0, scale * 1.4);
-      else if (z === "out") zoomAt(0, 0, scale / 1.4);
-      else zoomAt(0, 0, 1);
-    });
-  });
-
-  // fade the hint away after a few seconds
+  // fade the gesture hint away after a few seconds
   const hint = wrap.querySelector(".reader-zoom-hint");
   setTimeout(() => hint && hint.classList.add("gone"), 3600);
 }
