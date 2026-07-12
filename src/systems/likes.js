@@ -63,6 +63,10 @@ export async function toggleLike(pageId) {
           name: `projects/${likesConfig.projectId}/databases/(default)/documents/likes/${pageId}`,
           fields: {},
         },
+        // empty mask = patch nothing, so the increment applies to the REAL
+        // stored count (without it the write would replace the doc first and
+        // every like after the first would violate the ±1 rules)
+        updateMask: { fieldPaths: [] },
         updateTransforms: [{ fieldPath: "count", increment: { integerValue: String(delta) } }],
       }],
     };
