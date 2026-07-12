@@ -17,7 +17,7 @@ import { setJumpHandler, jumpToPage } from "./ui/jump.js";
 import { narrate, advanceNarration, isNarrating } from "./ui/narration.js";
 import { mountHud, updateHudCount, getHudJournalButtonRect } from "./ui/hud.js";
 import { isAnyOverlayOpen } from "./ui/overlays.js";
-import { isSpeaking } from "./systems/voice.js";
+import { isSpeaking, stopSpeaking } from "./systems/voice.js";
 import { initTouchControls, touchMove, isTouchDevice } from "./ui/touch.js";
 
 // ---------------------------------------------------------------------------
@@ -1023,7 +1023,8 @@ function begin() {
     settling = false;
     // deep link (?page=<id>): fly the visitor straight to the shared page
     if (DEEP_PAGE) { gateOpen = true; arrived = true; jumpToPage(DEEP_PAGE); return; }
-    if (getSurfacedCount() === 0) narrate(magazine.sutradhar.welcome);
+    // never speak over the gate verse (one voice at a time, always)
+    if (!verseActive && !versePlayed && getSurfacedCount() === 0) narrate(magazine.sutradhar.welcome);
   }, 3000);
 }
 splash.addEventListener("click", begin);
@@ -1032,6 +1033,7 @@ splash.addEventListener("click", begin);
 // standing at it, otherwise open the page you're nearest. Used by keyboard,
 // canvas tap and the mobile interact button.
 function interact() {
+  if (!started || settling) return; // no interactions during the opening swoop
   if (isNarrating()) { advanceNarration(); return; }
   if (isAnyOverlayOpen()) return;
   // near the closed gate? first the Modi inscription awakens (once), then the
@@ -1080,6 +1082,7 @@ function runGateVerse() {
   verseActive = true;
   verseStartT = clock.getElapsedTime();
   gateOpen = true; // the doors begin their slow swing UNDER the proclamation
+  stopSpeaking(); // silence any lingering narration — one voice at a time
   playDescentRumble();
   setMusicDucked(true); // the world hushes; only the Akashvani speaks
 
@@ -1154,6 +1157,8 @@ addEventListener("keydown", (e) => {
   }
   if (showcaseMode) { exitShowcase(); return; } // any key hands over control
   if (verseActive) { verseCleanup?.(); return; } // skip the gate verse
+  if (settling) return; // the opening swoop ignores all input (prevents the
+  // double-Space race that started the gate verse under the welcome lines)
   if (k === " " || k === "enter" || k === "e") interact();
   // quick shortcuts: index / journal / cycle camera angle
   if (!isAnyOverlayOpen()) {
