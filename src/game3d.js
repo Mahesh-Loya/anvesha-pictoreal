@@ -9,7 +9,7 @@ import gsap from "gsap";
 import { magazine } from "./content/magazine.config.js";
 import { state } from "./state.js";
 import { surfaceFragment, isJourneyComplete, getSurfacedCount, getTotalFragments } from "./systems/fragments.js";
-import { playFragmentChime, playFootstep, startAmbientMusic, playDescentRumble } from "./systems/audio.js";
+import { playFragmentChime, playFootstep, startAmbientMusic, playDescentRumble, setMusicDucked } from "./systems/audio.js";
 import { openReader, isReaderOpen, closeReader } from "./ui/reader.js";
 import { openJournal, isJournalOpen, closeJournal } from "./ui/journal.js";
 import { openContents, isContentsOpen, closeContents } from "./ui/contents.js";
@@ -1079,6 +1079,7 @@ function runGateVerse() {
   verseActive = true;
   gateOpen = true; // the doors begin their slow swing UNDER the proclamation
   playDescentRumble();
+  setMusicDucked(true); // the world hushes; only the Akashvani speaks
 
   const anvesha = graphemes("अन्वेषा")
     .map((g, k) => `<span class="gv-ch" style="animation-delay:${(k * 0.22).toFixed(2)}s">${g}</span>`)
@@ -1127,6 +1128,7 @@ function runGateVerse() {
     finished = true;
     verseActive = false;
     verseCleanup = null;
+    setMusicDucked(false); // music swells back
     timers.forEach(clearTimeout);
     try { clip.pause(); } catch {}
     el.classList.add("gone");
@@ -1446,10 +1448,12 @@ function animate() {
   const overlay = isAnyOverlayOpen() || !started || settling || showcaseMode || verseActive;
   if (overlay && pointerLocked) document.exitPointerLock();
 
-  // the gate swings open once triggered — in slow, weighty motion while the
-  // Akashvani verse plays over it, briskly otherwise
+  // the gate swings open once triggered — in slow, weighty motion that lasts
+  // the whole Akashvani verse (the cubic ease-out front-loads motion, so the
+  // verse factor is tuned for ~85% eased-open across the 14s recitation),
+  // briskly otherwise
   const targetSwing = gateOpen ? 1 : 0;
-  gateSwing += (targetSwing - gateSwing) * (verseActive ? 0.0045 : 0.055);
+  gateSwing += (targetSwing - gateSwing) * (verseActive ? 0.00078 : 0.055);
   const swingEased = 1 - Math.pow(1 - gateSwing, 3);
   doorL.rotation.y = swingEased * 2.05;
   doorR.rotation.y = -swingEased * 2.05;

@@ -125,10 +125,26 @@ function startDroneMusic() {
   }, 5200);
 }
 
+// duck the music under a big spoken moment (the gate verse) and restore after
+let ducked = false;
+let duckTween = null;
+export function setMusicDucked(on) {
+  ducked = on;
+  const target = state.audioMuted ? 0 : on ? 0.04 : TRACK_VOL;
+  if (musicMaster) musicMaster.gain.value = state.audioMuted ? 0 : on ? MUSIC_VOL * 0.15 : MUSIC_VOL;
+  if (!musicTrack) return;
+  clearInterval(duckTween);
+  duckTween = setInterval(() => {
+    const d = target - musicTrack.volume;
+    if (Math.abs(d) < 0.01) { musicTrack.volume = target; clearInterval(duckTween); return; }
+    musicTrack.volume += d * 0.18;
+  }, 50);
+}
+
 export function toggleMute() {
   state.audioMuted = !state.audioMuted;
-  if (musicMaster) musicMaster.gain.value = state.audioMuted ? 0 : MUSIC_VOL;
-  if (musicTrack) musicTrack.volume = state.audioMuted ? 0 : TRACK_VOL;
+  if (musicMaster) musicMaster.gain.value = state.audioMuted ? 0 : ducked ? MUSIC_VOL * 0.15 : MUSIC_VOL;
+  if (musicTrack) musicTrack.volume = state.audioMuted ? 0 : ducked ? 0.04 : TRACK_VOL;
   return state.audioMuted;
 }
 

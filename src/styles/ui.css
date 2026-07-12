@@ -981,9 +981,11 @@ body.showcasing #touch-controls { display: none !important; }
 .gv-title.blaze .gv-modi-word { animation: gvFade 1.4s ease 0.5s forwards; }
 .gv-anvesha {
   font-family: Georgia, serif;
-  font-size: clamp(52px, 11vw, 120px);
+  font-weight: 700;
+  font-size: clamp(56px, 12vw, 132px);
   color: #fcde5a;
   line-height: 1.15;
+  -webkit-text-stroke: 1.5px rgba(120, 80, 10, 0.55); /* carved-gold edge */
 }
 .gv-anvesha .gv-ch {
   opacity: 0;
