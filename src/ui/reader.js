@@ -1,6 +1,7 @@
 import { playPageOpen } from "../systems/audio.js";
 import { speak, stopSpeaking, isVoiceEnabled } from "../systems/voice.js";
 import { isTouchDevice } from "./touch.js";
+import { likesEnabled, getLikes, toggleLike, hasLiked } from "../systems/likes.js";
 
 const readPageIds = new Set();
 let currentPageData = null;
@@ -33,6 +34,7 @@ export function openReader(pageData, onFirstRead) {
       ${pageData.blurb ? `<div class="reader-blurb">${pageData.blurb}</div>` : ""}
       <div class="reader-caption-plate">
         <div class="reader-react">
+          ${likesEnabled() ? `<button class="diya-like" title="Light a diya for this page"><span class="dl-icon">🪔</span><span class="dl-count"></span></button>` : ""}
           ${["❤️", "😂", "😮", "🙏", "🔥"].map((e) => `<button class="rx" data-e="${e}" aria-label="React ${e}">${e}</button>`).join("")}
         </div>
         <span>${pageData.title}</span>
@@ -42,6 +44,7 @@ export function openReader(pageData, onFirstRead) {
   root.classList.add("visible");
   goldBurst(root.querySelector(".reader-card"));
   setupReactions(root, pageData.id);
+  setupDiyaLike(root, pageData.id);
 
   root.querySelector(".reader-close").addEventListener("click", closeReader);
   // Share this page: a link that opens the game directly on this page
@@ -217,6 +220,38 @@ function setupReactions(root, pageId) {
     });
   });
 }
+// ---- global "light a diya" like (Firestore; hidden when not configured) ----
+function setupDiyaLike(root, pageId) {
+  const btn = root.querySelector(".diya-like");
+  if (!btn) return;
+  const countEl = btn.querySelector(".dl-count");
+  let count = null;
+  let busy = false;
+  const paint = () => {
+    btn.classList.toggle("lit", hasLiked(pageId));
+    countEl.textContent = count === null ? "" : String(count);
+  };
+  paint();
+  getLikes(pageId).then((c) => {
+    if (c === null) return; // service unreachable — leave the count blank
+    count = c;
+    paint();
+  });
+  btn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    if (busy) return;
+    busy = true;
+    const wasLit = hasLiked(pageId);
+    const delta = await toggleLike(pageId);
+    if (delta !== 0) {
+      if (count !== null) count = Math.max(0, count + delta);
+      if (!wasLit) emojiBurst(root.querySelector(".reader-card"), "🪔", btn);
+      paint();
+    }
+    busy = false;
+  });
+}
+
 function emojiBurst(card, emoji, fromBtn) {
   if (!card) return;
   const cr = card.getBoundingClientRect();

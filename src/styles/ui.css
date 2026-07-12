@@ -894,3 +894,28 @@ body.showcasing #minimap,
 body.showcasing #controls-hint,
 body.showcasing #prompt3d,
 body.showcasing #touch-controls { display: none !important; }
+
+/* ---- global "light a diya" like ---- */
+.diya-like {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(252, 222, 90, 0.4);
+  background: transparent;
+  color: var(--archival-ivory);
+  font-family: Georgia, serif;
+  font-size: 14px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  cursor: pointer;
+  margin-right: 6px;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.diya-like .dl-icon { font-size: 16px; filter: grayscale(0.8); transition: filter 0.15s; }
+.diya-like:hover { background: rgba(252, 222, 90, 0.1); }
+.diya-like.lit {
+  border-color: var(--diya-gold, #fcde5a);
+  box-shadow: 0 0 10px rgba(252, 222, 90, 0.35);
+}
+.diya-like.lit .dl-icon { filter: none; }
+.diya-like .dl-count { color: var(--diya-gold, #fcde5a); min-width: 10px; }
