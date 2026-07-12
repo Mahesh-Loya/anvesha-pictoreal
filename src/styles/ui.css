@@ -1016,3 +1016,54 @@ body.showcasing #touch-controls { display: none !important; }
   letter-spacing: 2px;
   color: rgba(223, 230, 226, 0.4);
 }
+
+/* ---- photo mode ---- */
+body.photo #hud-root,
+body.photo #minimap,
+body.photo #controls-hint,
+body.photo #prompt3d,
+body.photo #touch-controls { display: none !important; }
+#photo-bar {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(6, 18, 15, 0.72);
+  border: 1px solid rgba(201, 162, 75, 0.5);
+  border-radius: 30px;
+  backdrop-filter: blur(6px);
+}
+#photo-bar button {
+  border: 1px solid rgba(223, 230, 226, 0.25);
+  background: rgba(10, 24, 20, 0.6);
+  color: #f4ece0;
+  font-size: 17px;
+  font-family: system-ui, sans-serif;
+  padding: 9px 14px;
+  border-radius: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+#photo-bar button span { font-size: 13px; letter-spacing: 1px; }
+#photo-bar #ph-snap {
+  font-size: 24px;
+  padding: 9px 20px;
+  border-color: var(--diya-gold, #fcde5a);
+  box-shadow: 0 0 14px rgba(252, 222, 90, 0.25);
+}
+#photo-bar button:hover { background: rgba(30, 55, 46, 0.85); }
+#photo-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #fff;
+  pointer-events: none;
+  animation: phFlash 0.45s ease-out forwards;
+}
+@keyframes phFlash { 0% { opacity: 0.9; } 100% { opacity: 0; } }

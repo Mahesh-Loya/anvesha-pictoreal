@@ -12,6 +12,7 @@ export function mountHud() {
     <div class="hud-buttons">
       <button id="hud-index" title="Index">☰</button>
       <button id="hud-journal" title="Collection">📖</button>
+      <button id="hud-photo" title="Photo mode (P)">📷</button>
       <button id="hud-theme" title="Lantern / bright (L)">🌙</button>
       <button id="hud-voice" title="Narration voice">${isVoiceEnabled() ? "🗣️" : "🔇"}</button>
       <button id="hud-mute" title="Sound effects">${isMuted() ? "🔕" : "🔔"}</button>

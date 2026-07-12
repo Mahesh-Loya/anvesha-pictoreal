@@ -944,6 +944,109 @@ const eyeMat = new THREE.PointsMaterial({
 });
 scene.add(new THREE.Points(egeo, eyeMat));
 
+// ---- PHOTO MODE: frame the descent like a magazine plate ----
+// P / 📷 freezes the moment, hides the UI and frees the camera (full orbit,
+// dolly, looks). The snap is composed like a print: folk border, the seal,
+// and a "PICTOREAL · VOLUME 28 · अन्वेषा" caption baked into the image.
+let photoMode = false;
+let photoLook = 0;
+const PHOTO_LOOKS = [
+  { name: "Lamplight", css: "" },
+  { name: "Old Print", css: "sepia(0.5) saturate(1.12) contrast(1.06)" },
+  { name: "Ink", css: "grayscale(1) contrast(1.3) brightness(1.05)" },
+];
+const photoLogo = new Image();
+photoLogo.src = "pictoreal-logo.png";
+
+function enterPhoto() {
+  if (photoMode || !started || settling || showcaseMode || verseActive || isAnyOverlayOpen()) return;
+  photoMode = true;
+  document.exitPointerLock?.();
+  document.body.classList.add("photo");
+  const bar = document.createElement("div");
+  bar.id = "photo-bar";
+  bar.innerHTML = `
+    <button id="ph-hero" title="Show / hide the Sutradhar">👤</button>
+    <button id="ph-look" title="Look">🎨 <span>Lamplight</span></button>
+    <button id="ph-snap" title="Snap">📸</button>
+    <button id="ph-exit" title="Exit">✕</button>`;
+  document.body.appendChild(bar);
+  document.getElementById("ph-hero").addEventListener("click", () => {
+    const target = heroModel || hero;
+    target.visible = !target.visible;
+  });
+  document.getElementById("ph-look").addEventListener("click", (e) => {
+    photoLook = (photoLook + 1) % PHOTO_LOOKS.length;
+    renderer.domElement.style.filter = PHOTO_LOOKS[photoLook].css;
+    e.currentTarget.querySelector("span").textContent = PHOTO_LOOKS[photoLook].name;
+  });
+  document.getElementById("ph-snap").addEventListener("click", snapPhoto);
+  document.getElementById("ph-exit").addEventListener("click", exitPhoto);
+}
+
+function exitPhoto() {
+  photoMode = false;
+  document.body.classList.remove("photo");
+  document.getElementById("photo-bar")?.remove();
+  renderer.domElement.style.filter = "";
+  photoLook = 0;
+  const target = heroModel || hero;
+  target.visible = true;
+  camPitch = Math.max(0.14, Math.min(1.15, camPitch));
+}
+
+function snapPhoto() {
+  composer.render(); // fresh frame in the buffer before reading it
+  const src = renderer.domElement;
+  const W = src.width, H = src.height;
+  const M = Math.round(Math.min(W, H) * 0.05);
+  const band = Math.round(M * 2.1);
+  const c = document.createElement("canvas");
+  c.width = W + M * 2;
+  c.height = H + M * 2 + band;
+  const x = c.getContext("2d");
+  x.fillStyle = "#0a2c26";
+  x.fillRect(0, 0, c.width, c.height);
+  try { x.filter = PHOTO_LOOKS[photoLook].css || "none"; } catch {}
+  x.drawImage(src, M, M, W, H);
+  try { x.filter = "none"; } catch {}
+  // gold plate frame
+  x.strokeStyle = "#c9a24b";
+  x.lineWidth = Math.max(2, M * 0.14);
+  x.strokeRect(M * 0.5, M * 0.5, W + M, H + M);
+  // caption band
+  const cy = M + H + M * 0.55 + band * 0.45;
+  x.fillStyle = "#f4ece0";
+  x.textAlign = "center";
+  x.font = `${Math.round(band * 0.34)}px Georgia`;
+  x.fillText("PICTOREAL · VOLUME 28 · अन्वेषा", c.width / 2, cy);
+  x.font = `${Math.round(band * 0.2)}px Georgia`;
+  x.fillStyle = "rgba(223,230,226,0.55)";
+  x.fillText("the seeking — an explorable magazine", c.width / 2, cy + band * 0.32);
+  if (photoLogo.complete && photoLogo.naturalWidth) {
+    const s = band * 0.82;
+    x.drawImage(photoLogo, c.width - M - s, M + H + M * 0.55 + (band - s) / 2 - M * 0.35, s, s);
+  }
+  // shutter flash
+  const flash = document.createElement("div");
+  flash.id = "photo-flash";
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 450);
+  playFragmentChime();
+  c.toBlob(async (blob) => {
+    if (!blob) return;
+    const file = new File([blob], "anvesha-pictoreal.png", { type: "image/png" });
+    if (isTouchDevice() && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: "Anvesha · Pictoreal Vol. 28" }); return; } catch {}
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "anvesha-pictoreal.png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }, "image/png");
+}
+
 // ---- the well's secrets (easter eggs) ----
 const SECRETS = magazine.sutradhar.secrets || {};
 let pokeCount = 0, pokeDone = false;
@@ -1234,6 +1337,8 @@ addEventListener("keydown", (e) => {
   if (verseActive) { verseCleanup?.(); return; } // skip the gate verse
   if (settling) return; // the opening swoop ignores all input (prevents the
   // double-Space race that started the gate verse under the welcome lines)
+  if (photoMode) { if (k === "p" || k === "escape") exitPhoto(); return; }
+  if (k === "p" && !isAnyOverlayOpen()) { enterPhoto(); return; }
   if (k === " " || k === "enter" || k === "e") interact();
   // quick shortcuts: index / journal / cycle camera angle
   if (!isAnyOverlayOpen()) {
@@ -1290,7 +1395,10 @@ window.addEventListener("pointermove", (e) => {
   if (!dragging && Math.hypot(dx, dy) > 6) dragging = true;
   if (dragging) {
     camYaw -= dx * 0.006;
-    camPitch = Math.max(0.03, Math.min(1.25, camPitch + dy * 0.004));
+    // photo mode frees the full pitch range (floor-level to straight down)
+    const lo = photoMode ? -0.3 : 0.03;
+    const hi = photoMode ? 1.5 : 1.25;
+    camPitch = Math.max(lo, Math.min(hi, camPitch + dy * 0.004));
     down = { id: down.id, x: e.clientX, y: e.clientY };
     manualUntil = clock.getElapsedTime() + 3.5;
   }
@@ -1300,6 +1408,12 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
   down = { id: e.pointerId, x: e.clientX, y: e.clientY };
   dragging = false;
 });
+// photo mode: mouse wheel dollies the camera in and out
+renderer.domElement.addEventListener("wheel", (e) => {
+  if (!photoMode) return;
+  e.preventDefault();
+  CAM_DIST = Math.max(4, Math.min(34, CAM_DIST + e.deltaY * 0.012));
+}, { passive: false });
 window.addEventListener("pointercancel", () => { down = null; dragging = false; });
 renderer.domElement.addEventListener("pointerup", (e) => {
   if (down && e.pointerId !== down.id) return;
@@ -1347,6 +1461,10 @@ addEventListener("resize", () => {
 
 // ---- HUD (welcome narration fires from begin() after the splash) ----
 mountHud();
+document.getElementById("hud-photo")?.addEventListener("click", () => {
+  enterPhoto();
+  document.querySelector("canvas")?.focus();
+});
 
 // ---- dark (lantern) / bright theme toggle ----
 // Default is the warm LANTERN mode: dim + warm so the lamp still leads the way
@@ -1533,7 +1651,7 @@ function animate() {
   const dt = clock.getDelta();
   const t = clock.elapsedTime; // updated by getDelta()
   if (heroMixer) heroMixer.update(dt);
-  const overlay = isAnyOverlayOpen() || !started || settling || showcaseMode || verseActive;
+  const overlay = isAnyOverlayOpen() || !started || settling || showcaseMode || verseActive || photoMode;
   if (overlay && pointerLocked) document.exitPointerLock();
 
   // the gate swings open once triggered — in slow, weighty motion that lasts
@@ -1756,14 +1874,15 @@ function animate() {
     while (d < -Math.PI) d += Math.PI * 2;
     camYaw += d * 0.05;
   }
-  const cp = Math.max(0.12, Math.min(1.15, camPitch));
+  const cp = photoMode ? camPitch : Math.max(0.12, Math.min(1.15, camPitch));
   const dirx = Math.sin(camYaw) * Math.cos(cp);
   const dirz = Math.cos(camYaw) * Math.cos(cp);
   // the camera rides high enough to look over the cave walls; only when a low
-  // angle would bury it in the rock do we pull the boom in
+  // angle would bury it in the rock do we pull the boom in (never in photo
+  // mode — the photographer owns the framing)
   const camHeight = Math.sin(cp) * CAM_DIST + 2.6;
   let want = CAM_DIST;
-  if (heroPos.z < RAMP_BOT && camHeight < WALLH + 1.5) {
+  if (!photoMode && heroPos.z < RAMP_BOT && camHeight < WALLH + 1.5) {
     want = 3;
     for (let dd = CAM_DIST; dd >= 3; dd -= 0.5) {
       if (isWalkable(cave, hero.position.x + dirx * dd, hero.position.z + dirz * dd, 0.2)) { want = dd; break; }
