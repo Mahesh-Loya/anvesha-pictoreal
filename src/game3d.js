@@ -1052,21 +1052,21 @@ function openTheGate() {
   setTimeout(() => { enteringHall = true; }, 1500);
 }
 
-// ---- the gate verse: the Modi-script inscription glows to life letter by
-// letter while the Sutradhar recites it in Hindi, then the doors open ----
-// (Modi transliteration via Aksharamukha; nukta letters simplified as Modi
-// has no nukta — the voice carries the exact Hindi.)
-const VERSE_LINES = [
-  { modi: "𑘕𑘿𑘗𑘰𑘡 𑘎𑘲 𑘨𑘰𑘮 𑘢𑘨 𑘕𑘻 𑘤𑘛𑘝𑘲 𑘨𑘮𑘹,", hindi: "ज्ञान की राह पर जो बढ़ती रहे," },
-  { modi: "𑘮𑘨 𑘊𑘎 𑘨𑘮𑘭𑘿𑘧 𑘎𑘻 𑘪𑘻 𑘢𑘛𑘝𑘲 𑘨𑘮𑘹𑙁", hindi: "हर एक रहस्य को वो पढ़ती रहे।" },
-  { modi: "𑘭𑘝𑘿𑘧 𑘍𑘨 𑘦𑘽𑘕𑘲𑘩 𑘎𑘲 𑘕𑘲𑘭𑘹 𑘝𑘩𑘰𑘫 𑘮𑘺,", hindi: "सत्य और मंज़िल की जिसे तलाश है," },
-  { modi: "𑘀𑘡𑘿𑘪𑘹𑘬𑘰 𑘮𑘲 𑘄𑘭 𑘏𑘻𑘕 𑘎𑘰 𑘢𑘿𑘨𑘎𑘰𑘫 𑘮𑘺𑙁", hindi: "अन्वेषा ही उस खोज का प्रकाश है।" },
+// ---- the gate verse: an Akashvani proclamation while the doors grind open.
+// No wall of text — the verse rides as a whisper of subtitles while the doors
+// swing in slow motion; at the word "अन्वेषा" the title blazes in three
+// scripts (Modi above, Devanagari huge, Latin beneath). ----
+const VERSE_CAPTIONS = [
+  "ज्ञान की राह पर जो बढ़ती रहे,",
+  "हर एक रहस्य को वो पढ़ती रहे।",
+  "सत्य और मंज़िल की जिसे तलाश है...",
+  "...ही उस खोज का प्रकाश है।",
 ];
 let versePlayed = false;
 let verseActive = false;
 let verseCleanup = null;
 
-// split into grapheme clusters so Modi matras stay attached to their letters
+// split into grapheme clusters so matras stay attached to their letters
 function graphemes(s) {
   if (typeof Intl !== "undefined" && Intl.Segmenter) {
     return [...new Intl.Segmenter("hi", { granularity: "grapheme" }).segment(s)].map((x) => x.segment);
@@ -1077,22 +1077,49 @@ function graphemes(s) {
 function runGateVerse() {
   versePlayed = true;
   verseActive = true;
-  const LINE_GAP = 2.15; // seconds between line starts (matches the recitation)
+  gateOpen = true; // the doors begin their slow swing UNDER the proclamation
+  playDescentRumble();
+
+  const anvesha = graphemes("अन्वेषा")
+    .map((g, k) => `<span class="gv-ch" style="animation-delay:${(k * 0.22).toFixed(2)}s">${g}</span>`)
+    .join("");
   const el = document.createElement("div");
   el.id = "gate-verse";
-  el.innerHTML = VERSE_LINES.map((l, i) => {
-    const letters = graphemes(l.modi)
-      .map((g, k) => `<span class="gv-ch" style="animation-delay:${(i * LINE_GAP + 0.15 + k * 0.055).toFixed(2)}s">${g === " " ? "&nbsp;" : g}</span>`)
-      .join("");
-    return `<div class="gv-line">
-      <div class="gv-modi">${letters}</div>
-      <div class="gv-hindi" style="animation-delay:${(i * LINE_GAP + 0.7).toFixed(2)}s">${l.hindi}</div>
-    </div>`;
-  }).join("") + `<div class="gv-skip">tap to skip</div>`;
+  el.innerHTML = `
+    <div class="gv-bar gv-top"></div>
+    <div class="gv-bar gv-bot"></div>
+    <div class="gv-title">
+      <div class="gv-modi-word">𑘀𑘡𑘿𑘪𑘹𑘬𑘰</div>
+      <div class="gv-anvesha">${anvesha}</div>
+      <div class="gv-latin">A&thinsp;N&thinsp;V&thinsp;E&thinsp;S&thinsp;H&thinsp;A</div>
+    </div>
+    <div class="gv-caption"></div>
+    <div class="gv-skip">tap to skip</div>`;
   document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("cine")); // letterbox slides in
 
+  const capEl = el.querySelector(".gv-caption");
+  const titleEl = el.querySelector(".gv-title");
   const clip = new Audio("voice/gate-verse.mp3");
-  clip.play().catch(() => {});
+  let timers = [];
+  const schedule = (fn, s) => timers.push(setTimeout(fn, s * 1000));
+
+  // timings ride on the real clip length (fallback 14s), captions in the
+  // proportion the verse is recited; the title blazes on the word "अन्वेषा"
+  const plan = (T) => {
+    const cap = (text, at, hold) => schedule(() => {
+      capEl.textContent = text;
+      capEl.classList.add("on");
+      schedule(() => capEl.classList.remove("on"), hold);
+    }, at);
+    cap(VERSE_CAPTIONS[0], 0.02 * T, 0.20 * T);
+    cap(VERSE_CAPTIONS[1], 0.25 * T, 0.20 * T);
+    cap(VERSE_CAPTIONS[2], 0.48 * T, 0.19 * T);
+    schedule(() => titleEl.classList.add("blaze"), 0.70 * T); // अन्वेषा...
+    cap(VERSE_CAPTIONS[3], 0.80 * T, 0.18 * T);
+  };
+  clip.addEventListener("loadedmetadata", () => plan(clip.duration || 14));
+  clip.play().catch(() => plan(14)); // audio blocked -> run the visuals anyway
 
   let finished = false;
   const finish = () => {
@@ -1100,15 +1127,16 @@ function runGateVerse() {
     finished = true;
     verseActive = false;
     verseCleanup = null;
+    timers.forEach(clearTimeout);
     try { clip.pause(); } catch {}
     el.classList.add("gone");
-    setTimeout(() => el.remove(), 900);
-    openTheGate();
+    setTimeout(() => el.remove(), 1000);
+    setTimeout(() => { enteringHall = true; }, 500); // stride down; the verse said it all
   };
   verseCleanup = finish;
   el.addEventListener("pointerup", finish); // tap anywhere to skip
-  clip.addEventListener("ended", () => setTimeout(finish, 700));
-  setTimeout(finish, 12000); // safety net if audio never fires
+  clip.addEventListener("ended", () => setTimeout(finish, 1800)); // hold the title
+  setTimeout(finish, 19000); // safety net if audio never fires
 }
 
 // keyboard
@@ -1418,10 +1446,10 @@ function animate() {
   const overlay = isAnyOverlayOpen() || !started || settling || showcaseMode || verseActive;
   if (overlay && pointerLocked) document.exitPointerLock();
 
-  // the gate swings open once triggered
-  // the great doors swing open with weight (ease-out) once triggered
+  // the gate swings open once triggered — in slow, weighty motion while the
+  // Akashvani verse plays over it, briskly otherwise
   const targetSwing = gateOpen ? 1 : 0;
-  gateSwing += (targetSwing - gateSwing) * 0.055;
+  gateSwing += (targetSwing - gateSwing) * (verseActive ? 0.0045 : 0.055);
   const swingEased = 1 - Math.pow(1 - gateSwing, 3);
   doorL.rotation.y = swingEased * 2.05;
   doorR.rotation.y = -swingEased * 2.05;

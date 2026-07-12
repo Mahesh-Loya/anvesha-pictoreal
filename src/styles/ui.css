@@ -920,54 +920,97 @@ body.showcasing #touch-controls { display: none !important; }
 .diya-like.lit .dl-icon { filter: none; }
 .diya-like .dl-count { color: var(--diya-gold, #fcde5a); min-width: 10px; }
 
-/* ---- the gate verse: Modi inscription glowing to life ---- */
+/* ---- the gate verse: Akashvani proclamation over the opening doors ---- */
 #gate-verse {
   position: fixed;
   inset: 0;
   z-index: 45;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(10px, 2.4vh, 22px);
-  background: rgba(4, 12, 10, 0.82);
-  transition: opacity 0.85s ease;
   cursor: pointer;
+  transition: opacity 0.9s ease;
+  /* transparent — the doors stay visible; only a soft edge dim for focus */
+  background: radial-gradient(ellipse 90% 80% at 50% 45%, rgba(0,0,0,0) 55%, rgba(2,8,7,0.55) 100%);
 }
 #gate-verse.gone { opacity: 0; pointer-events: none; }
-.gv-line { text-align: center; }
-.gv-modi {
-  font-family: "Noto Sans Modi", serif;
-  font-size: clamp(24px, 4.6vw, 46px);
-  color: #fcde5a;
-  letter-spacing: 2px;
-  line-height: 1.35;
+/* cinematic letterbox bars that slide in */
+.gv-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  background: #020505;
+  transition: height 1.4s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
-.gv-ch {
+.gv-top { top: 0; }
+.gv-bot { bottom: 0; }
+#gate-verse.cine .gv-bar { height: 9vh; }
+/* whispered subtitles */
+.gv-caption {
+  position: absolute;
+  bottom: 12vh;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: Georgia, serif;
+  font-size: clamp(15px, 2.2vw, 22px);
+  letter-spacing: 1px;
+  color: rgba(238, 240, 234, 0.88);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.7s ease;
+}
+.gv-caption.on { opacity: 1; }
+/* the trinity title — hidden until the voice says the word */
+.gv-title {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+}
+.gv-title.blaze { opacity: 1; }
+.gv-modi-word {
+  font-family: "Noto Sans Modi", serif;
+  font-size: clamp(18px, 2.6vw, 30px);
+  color: rgba(252, 222, 90, 0.55);
+  letter-spacing: 6px;
+  opacity: 0;
+  margin-bottom: 6px;
+}
+.gv-title.blaze .gv-modi-word { animation: gvFade 1.4s ease 0.5s forwards; }
+.gv-anvesha {
+  font-family: Georgia, serif;
+  font-size: clamp(52px, 11vw, 120px);
+  color: #fcde5a;
+  line-height: 1.15;
+}
+.gv-anvesha .gv-ch {
   opacity: 0;
   display: inline-block;
-  animation: gvGlow 0.9s ease forwards;
 }
-@keyframes gvGlow {
-  0% { opacity: 0; transform: translateY(6px) scale(0.92); text-shadow: none; }
-  55% { opacity: 1; text-shadow: 0 0 26px rgba(252, 222, 90, 0.95), 0 0 60px rgba(252, 190, 60, 0.5); }
-  100% { opacity: 1; transform: translateY(0) scale(1); text-shadow: 0 0 12px rgba(252, 222, 90, 0.45); }
+.gv-title.blaze .gv-anvesha .gv-ch { animation: gvBlaze 1.1s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+@keyframes gvBlaze {
+  0% { opacity: 0; transform: scale(1.6); filter: blur(6px); text-shadow: none; }
+  45% { opacity: 1; filter: blur(0); text-shadow: 0 0 60px rgba(252, 222, 90, 1), 0 0 120px rgba(252, 190, 60, 0.7); }
+  100% { opacity: 1; transform: scale(1); text-shadow: 0 0 22px rgba(252, 222, 90, 0.55), 0 0 70px rgba(252, 190, 60, 0.3); }
 }
-.gv-hindi {
-  font-family: Georgia, serif;
-  font-size: clamp(13px, 1.9vw, 18px);
-  color: rgba(223, 230, 226, 0.75);
-  margin-top: 4px;
+.gv-latin {
+  font-family: system-ui, sans-serif;
+  font-size: clamp(12px, 1.6vw, 18px);
+  letter-spacing: 10px;
+  color: rgba(223, 230, 226, 0.8);
+  margin-top: 10px;
   opacity: 0;
-  animation: gvFade 1.1s ease forwards;
 }
+.gv-title.blaze .gv-latin { animation: gvFade 1.3s ease 0.9s forwards; }
 @keyframes gvFade { to { opacity: 1; } }
 .gv-skip {
   position: absolute;
-  bottom: 22px;
+  bottom: 3vh;
   right: 26px;
   font-family: system-ui, sans-serif;
   font-size: 12px;
   letter-spacing: 2px;
-  color: rgba(223, 230, 226, 0.45);
+  color: rgba(223, 230, 226, 0.4);
 }
