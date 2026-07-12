@@ -944,6 +944,76 @@ const eyeMat = new THREE.PointsMaterial({
 });
 scene.add(new THREE.Points(egeo, eyeMat));
 
+// ---- the well's secrets (easter eggs) ----
+const SECRETS = magazine.sutradhar.secrets || {};
+let pokeCount = 0, pokeDone = false;
+let eyeGaze = 0, eyeDone = false, eyeFlash = 0;
+let lotusFound = false;
+try { lotusFound = localStorage.getItem("pv28-lotus") === "1"; } catch {}
+
+// the golden lotus at the far crown of the well — the hardest place to reach
+const lotusNode = cave.nodes.find((n) => n.lotus);
+const lotusGroup = new THREE.Group();
+let lotusGlow;
+{
+  const ped = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.4, 1.2, 10), pillarMat);
+  ped.position.y = 0.6;
+  lotusGroup.add(ped);
+  const petalMat = new THREE.MeshStandardMaterial({ color: 0xf0c341, emissive: 0xc98228, emissiveIntensity: 0.55, roughness: 0.4 });
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const petal = new THREE.Mesh(new THREE.ConeGeometry(0.34, 1.15, 6), petalMat);
+    petal.position.set(Math.cos(a) * 0.55, 1.55, Math.sin(a) * 0.55);
+    petal.rotation.set(Math.sin(a) * 0.85, 0, -Math.cos(a) * 0.85);
+    lotusGroup.add(petal);
+  }
+  const heart = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 12),
+    new THREE.MeshStandardMaterial({ color: 0xffe08a, emissive: 0xffc84a, emissiveIntensity: 1.6 }));
+  heart.position.y = 1.75;
+  lotusGroup.add(heart);
+  lotusGlow = new THREE.PointLight(0xffcf5a, 3.2, 20, 2);
+  lotusGlow.position.y = 2.2;
+  lotusGroup.add(lotusGlow);
+  lotusGroup.position.set(lotusNode.x, 0, lotusNode.z);
+  scene.add(lotusGroup);
+}
+const SECRET_PAGE = {
+  id: "secret-lotus",
+  title: "The Lotus Manuscript",
+  lang: "hi",
+  surfaceImage: "pages/secret-lotus.jpg",
+  hiddenImage: null,
+  caption: "अन्वेषा · a hidden page",
+  blurb: "",
+};
+function triggerLotus() {
+  const open = () => openReader(SECRET_PAGE, () => { playFragmentChime(); });
+  if (!lotusFound) {
+    lotusFound = true;
+    try { localStorage.setItem("pv28-lotus", "1"); } catch {}
+    narrate([SECRETS.lotus], open);
+  } else {
+    open();
+  }
+}
+function handlePoke() {
+  // the Sutradhar turns to face whoever poked him
+  heroFacing = Math.atan2(camera.position.x - heroPos.x, camera.position.z - heroPos.z);
+  pokeCount++;
+  if (pokeCount >= 3 && !pokeDone) { pokeDone = true; narrate([SECRETS.poke]); }
+}
+
+// dev helpers (localhost only, for testing far corners / screen positions)
+if (location.hostname === "localhost") {
+  window.__tp = (x, z) => { heroPos.set(x, 0, z); placeHero(); };
+  window.__heroScreen = () => {
+    const v = hero.position.clone();
+    v.y += 2;
+    v.project(camera);
+    return { x: (v.x * 0.5 + 0.5) * innerWidth, y: (-v.y * 0.5 + 0.5) * innerHeight };
+  };
+}
+
 // ---- interaction ----
 const prompt = document.getElementById("prompt3d");
 function nearestSlot() {
@@ -1041,6 +1111,11 @@ function interact() {
   if (!gateOpen && heroPos.z > GATE_Z - 1 && Math.abs(heroPos.x) < GAP) {
     if (!versePlayed) { runGateVerse(); return; }
     openTheGate();
+    return;
+  }
+  // the golden lotus at the well's crown
+  if (Math.hypot(heroPos.x - lotusNode.x, heroPos.z - lotusNode.z) < 4.5) {
+    triggerLotus();
     return;
   }
   const s = nearestSlot();
@@ -1242,6 +1317,12 @@ renderer.domElement.addEventListener("pointerup", (e) => {
     return;
   }
   if (wasDrag) return;
+  // did the tap land on the Sutradhar himself? (a secret hides in him)
+  if (started && !settling) {
+    const ndc = new THREE.Vector2((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    if (ray.intersectObject(hero, true).length) { handlePoke(); return; }
+  }
   // a clean tap: on touch, open the page you're standing at; on desktop,
   // capture the mouse for first-person-style look.
   if (isTouchDevice()) { if (started) interact(); return; }
@@ -1579,7 +1660,21 @@ function animate() {
   lamp.intensity = 14 + Math.sin(t * 12) * 1.8;
   diyaGlow.scale.setScalar(1 + Math.sin(t * 10) * 0.18);
   wormMat.opacity = 0.55 + Math.sin(t * 0.7) * 0.18; // glowworms breathe slowly
-  eyeMat.opacity = 0.75 + Math.sin(t * 0.9) * 0.2; // the sky-eye shimmers
+  // the sky-eye shimmers — and flares when a seeker returns its gaze
+  if (!eyeDone && !overlay) {
+    const onDais = Math.hypot(heroPos.x, heroPos.z) < 9;
+    if (onDais && camPitch < 0.3) {
+      eyeGaze += dt;
+      if (eyeGaze > 2.6) { eyeDone = true; eyeFlash = 5; narrate([SECRETS.eye]); }
+    } else {
+      eyeGaze = Math.max(0, eyeGaze - dt * 2);
+    }
+  }
+  if (eyeFlash > 0) eyeFlash -= dt;
+  eyeMat.opacity = eyeFlash > 0 ? 1 : 0.75 + Math.sin(t * 0.9) * 0.2;
+  eyeMat.size = eyeFlash > 0 ? 1.05 + Math.sin(t * 6) * 0.25 : 1.05;
+  // the lotus breathes
+  lotusGlow.intensity = 3.2 + Math.sin(t * 1.8) * 0.9;
   // the emblem grows brighter as the seeker uncovers the magazine
   const scProgress = getSurfacedCount() / getTotalFragments();
   emblemLight.intensity = 6 + scProgress * 9 + Math.sin(t * 2.2) * 0.5;
@@ -1686,8 +1781,10 @@ function animate() {
 
   // proximity prompt
   if (!overlay) {
+    const nearLotus = Math.hypot(heroPos.x - lotusNode.x, heroPos.z - lotusNode.z) < 4.5;
     const near = nearestSlot();
-    if (near && near.stop) { prompt.textContent = "Press E to open · " + near.stop.page.title; prompt.style.opacity = "1"; }
+    if (nearLotus) { prompt.textContent = "✦ a golden lotus waits — press E"; prompt.style.opacity = "1"; }
+    else if (near && near.stop) { prompt.textContent = "Press E to open · " + near.stop.page.title; prompt.style.opacity = "1"; }
     else if (near) { prompt.textContent = "A sealed folio — awaiting a future volume"; prompt.style.opacity = "1"; }
     else { prompt.style.opacity = "0"; }
   } else {

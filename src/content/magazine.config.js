@@ -35,6 +35,12 @@ export const magazine = {
     closingComplete:
       "Every page uncovered, every thread rejoined.\nWhat was scattered now forms one whole. This is Pictoreal.",
     closingIncomplete: "Pages still wait in the dark. Return, and keep seeking.",
+    // hidden lines — spoken only when a seeker discovers the well's secrets
+    secrets: {
+      poke: "मुझे नहीं, साधक... पन्नों को छुओ। कथा उनमें बसती है।",
+      eye: "जिसे तुम खोज रहे हो, साधक... वह भी तुम्हें देख रही है।",
+      lotus: "यह कमल हर किसी को नहीं मिलता, साधक। जो खोज की राह में भटकते नहीं, उन्हीं के लिए यह आख़िरी पन्ना खिलता है।",
+    },
   },
 
   // The assembled artwork (2 x 4 = 8 fragments -> 8 readable pages).

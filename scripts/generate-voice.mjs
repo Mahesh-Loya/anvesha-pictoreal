@@ -47,6 +47,7 @@ function collectLines() {
     ...(s.arrive || []),
     s.closingComplete,
     s.closingIncomplete,
+    ...(s.secrets ? Object.values(s.secrets) : []),
   ].filter(Boolean);
   for (const tier of magazine.tiers) {
     if (tier.intro) lines.push(tier.intro); // the Sutradhar's section introduction
