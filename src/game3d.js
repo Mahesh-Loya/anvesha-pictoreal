@@ -1065,6 +1065,7 @@ const VERSE_CAPTIONS = [
 let versePlayed = false;
 let verseActive = false;
 let verseCleanup = null;
+let verseStartT = 0; // for the slow cinematic dolly-in
 
 // split into grapheme clusters so matras stay attached to their letters
 function graphemes(s) {
@@ -1077,6 +1078,7 @@ function graphemes(s) {
 function runGateVerse() {
   versePlayed = true;
   verseActive = true;
+  verseStartT = clock.getElapsedTime();
   gateOpen = true; // the doors begin their slow swing UNDER the proclamation
   playDescentRumble();
   setMusicDucked(true); // the world hushes; only the Akashvani speaks
@@ -1637,6 +1639,14 @@ function animate() {
 
   if (showcaseMode) {
     runShowcaseCamera(t); // the stage flythrough owns the camera
+  } else if (verseActive) {
+    // cinematic gate shot: level with the seeker so the darkness shows
+    // through the widening doors (not the floor), with a slow dolly-in
+    const prog = Math.min(1, (t - verseStartT) / 14);
+    const gy = groundHeightAt(heroPos.z, heroPos.x);
+    const eye = new THREE.Vector3(heroPos.x * 0.3, gy + 4.3, GATE_Z + 14.5 - prog * 5);
+    camera.position.lerp(eye, 0.05);
+    camera.lookAt(0, gy + 3.9, GATE_Z - 5);
   } else {
   // third-person camera: trails behind the hero unless the player is steering
   if (t > manualUntil && moving) {
