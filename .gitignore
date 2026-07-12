@@ -6,3 +6,4 @@ dist/
 # large local art / video sources (encoded outputs live in public/)
 *.psd
 WhatsApp Video*.mp4
+/Logo_1.mp4

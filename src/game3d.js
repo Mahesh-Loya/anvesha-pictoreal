@@ -13,7 +13,7 @@ import { playFragmentChime, playFootstep, startAmbientMusic, playDescentRumble }
 import { openReader, isReaderOpen, closeReader } from "./ui/reader.js";
 import { openJournal, isJournalOpen, closeJournal } from "./ui/journal.js";
 import { openContents, isContentsOpen, closeContents } from "./ui/contents.js";
-import { setJumpHandler } from "./ui/jump.js";
+import { setJumpHandler, jumpToPage } from "./ui/jump.js";
 import { narrate, advanceNarration, isNarrating } from "./ui/narration.js";
 import { mountHud, updateHudCount, getHudJournalButtonRect } from "./ui/hud.js";
 import { isAnyOverlayOpen } from "./ui/overlays.js";
@@ -1021,6 +1021,8 @@ function begin() {
   settling = true;
   setTimeout(() => {
     settling = false;
+    // deep link (?page=<id>): fly the visitor straight to the shared page
+    if (DEEP_PAGE) { gateOpen = true; arrived = true; jumpToPage(DEEP_PAGE); return; }
     if (getSurfacedCount() === 0) narrate(magazine.sutradhar.welcome);
   }, 3000);
 }
@@ -1187,6 +1189,7 @@ document.getElementById("hud-theme")?.addEventListener("click", () => {
 // sky-eye, then pulls back to a title card with the QR — and loops. Any
 // key/tap hands control to a live player. Made for the launch projector.
 const SHOWCASE = new URLSearchParams(location.search).has("showcase");
+const DEEP_PAGE = new URLSearchParams(location.search).get("page"); // ?page=<id> share links
 let showcaseMode = false;
 let scStart = 0;
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);

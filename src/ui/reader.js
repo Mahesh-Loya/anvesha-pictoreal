@@ -1,5 +1,6 @@
 import { playPageOpen } from "../systems/audio.js";
 import { speak, stopSpeaking, isVoiceEnabled } from "../systems/voice.js";
+import { isTouchDevice } from "./touch.js";
 
 const readPageIds = new Set();
 let currentPageData = null;
@@ -24,6 +25,7 @@ export function openReader(pageData, onFirstRead) {
     <div class="reader-card folk-border">
       <button class="reader-close" aria-label="Close">×</button>
       <button class="reader-listen" aria-label="Read aloud">🔊 Read aloud</button>
+      <button class="reader-share" aria-label="Share this page">🔗 Share</button>
       <div class="reader-image-wrap">
         <img class="surface-layer" src="${pageData.surfaceImage}" alt="${pageData.title}" draggable="false" />
         <div class="reader-zoom-hint">scroll / pinch to zoom · drag to pan · double-tap to reset</div>
@@ -42,6 +44,24 @@ export function openReader(pageData, onFirstRead) {
   setupReactions(root, pageData.id);
 
   root.querySelector(".reader-close").addEventListener("click", closeReader);
+  // Share this page: a link that opens the game directly on this page
+  // (?page=<id>). Native share sheet on phones, copy-to-clipboard on desktop.
+  root.querySelector(".reader-share").addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    const url = `${location.origin}${location.pathname}?page=${encodeURIComponent(pageData.id)}`;
+    // phones get the native share sheet; desktop just copies the link
+    // (desktop Chrome also has navigator.share, but copy is what people want)
+    if (isTouchDevice() && navigator.share) {
+      try { await navigator.share({ title: `${pageData.title} — Pictoreal Vol. 28`, url }); } catch {}
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      btn.textContent = "✓ Link copied";
+      setTimeout(() => { btn.textContent = "🔗 Share"; }, 1700);
+    } catch {}
+  });
   const listenBtn = root.querySelector(".reader-listen");
   listenBtn.addEventListener("click", (e) => {
     e.stopPropagation();

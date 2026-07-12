@@ -276,6 +276,22 @@ body.touch #three-root canvas { touch-action: none; }
 }
 .reader-listen:hover { background: var(--teal-mid); }
 
+.reader-share {
+  position: absolute;
+  top: 8px;
+  left: 122px;
+  z-index: 5;
+  border: 1px solid var(--linework-gold);
+  background: var(--ink);
+  color: var(--archival-ivory);
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+}
+.reader-share:hover { background: var(--teal-mid); }
+
 .reader-blurb {
   padding: 10px 16px 0;
   background: var(--archival-ivory);
