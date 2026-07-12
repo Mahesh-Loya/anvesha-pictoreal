@@ -919,3 +919,55 @@ body.showcasing #touch-controls { display: none !important; }
 }
 .diya-like.lit .dl-icon { filter: none; }
 .diya-like .dl-count { color: var(--diya-gold, #fcde5a); min-width: 10px; }
+
+/* ---- the gate verse: Modi inscription glowing to life ---- */
+#gate-verse {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 2.4vh, 22px);
+  background: rgba(4, 12, 10, 0.82);
+  transition: opacity 0.85s ease;
+  cursor: pointer;
+}
+#gate-verse.gone { opacity: 0; pointer-events: none; }
+.gv-line { text-align: center; }
+.gv-modi {
+  font-family: "Noto Sans Modi", serif;
+  font-size: clamp(24px, 4.6vw, 46px);
+  color: #fcde5a;
+  letter-spacing: 2px;
+  line-height: 1.35;
+}
+.gv-ch {
+  opacity: 0;
+  display: inline-block;
+  animation: gvGlow 0.9s ease forwards;
+}
+@keyframes gvGlow {
+  0% { opacity: 0; transform: translateY(6px) scale(0.92); text-shadow: none; }
+  55% { opacity: 1; text-shadow: 0 0 26px rgba(252, 222, 90, 0.95), 0 0 60px rgba(252, 190, 60, 0.5); }
+  100% { opacity: 1; transform: translateY(0) scale(1); text-shadow: 0 0 12px rgba(252, 222, 90, 0.45); }
+}
+.gv-hindi {
+  font-family: Georgia, serif;
+  font-size: clamp(13px, 1.9vw, 18px);
+  color: rgba(223, 230, 226, 0.75);
+  margin-top: 4px;
+  opacity: 0;
+  animation: gvFade 1.1s ease forwards;
+}
+@keyframes gvFade { to { opacity: 1; } }
+.gv-skip {
+  position: absolute;
+  bottom: 22px;
+  right: 26px;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: rgba(223, 230, 226, 0.45);
+}

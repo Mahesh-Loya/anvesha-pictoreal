@@ -16,6 +16,17 @@
     <meta name="twitter:title" content="Anvesha · Pictoreal Volume 28" />
     <meta name="twitter:description" content="A 3D descent through the magazine — walk the seeing-eye, uncover 154 pages, guided by the Sutradhar." />
     <meta name="twitter:image" content="https://mahesh-loya.github.io/anvesha-pictoreal/og-image.png" />
+    <link rel="preload" href="fonts/NotoSansModi.ttf" as="font" type="font/ttf" crossorigin />
+    <style>
+      /* self-hosted Modi script font for the gate-verse inscription
+         (declared here with a page-relative URL so it works from the
+         GitHub Pages subpath — bundled CSS would mangle the path) */
+      @font-face {
+        font-family: "Noto Sans Modi";
+        src: url("fonts/NotoSansModi.ttf") format("truetype");
+        font-display: swap;
+      }
+    </style>
     <link rel="stylesheet" href="/src/styles/tokens.css" />
     <link rel="stylesheet" href="/src/styles/ui.css" />
   </head>

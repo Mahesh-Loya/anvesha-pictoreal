@@ -1034,16 +1034,81 @@ splash.addEventListener("click", begin);
 function interact() {
   if (isNarrating()) { advanceNarration(); return; }
   if (isAnyOverlayOpen()) return;
-  // near the closed gate? open it, let the doors swing, then stride down
+  // near the closed gate? first the Modi inscription awakens (once), then the
+  // doors swing and the descent begins
   if (!gateOpen && heroPos.z > GATE_Z - 1 && Math.abs(heroPos.x) < GAP) {
-    gateOpen = true;
-    playDescentRumble();
-    narrate(magazine.sutradhar.descend);
-    setTimeout(() => { enteringHall = true; }, 1500);
+    if (!versePlayed) { runGateVerse(); return; }
+    openTheGate();
     return;
   }
   const s = nearestSlot();
   if (s && s.stop) openStop(s.stop);
+}
+
+function openTheGate() {
+  gateOpen = true;
+  playDescentRumble();
+  narrate(magazine.sutradhar.descend);
+  setTimeout(() => { enteringHall = true; }, 1500);
+}
+
+// ---- the gate verse: the Modi-script inscription glows to life letter by
+// letter while the Sutradhar recites it in Hindi, then the doors open ----
+// (Modi transliteration via Aksharamukha; nukta letters simplified as Modi
+// has no nukta — the voice carries the exact Hindi.)
+const VERSE_LINES = [
+  { modi: "𑘕𑘿𑘗𑘰𑘡 𑘎𑘲 𑘨𑘰𑘮 𑘢𑘨 𑘕𑘻 𑘤𑘛𑘝𑘲 𑘨𑘮𑘹,", hindi: "ज्ञान की राह पर जो बढ़ती रहे," },
+  { modi: "𑘮𑘨 𑘊𑘎 𑘨𑘮𑘭𑘿𑘧 𑘎𑘻 𑘪𑘻 𑘢𑘛𑘝𑘲 𑘨𑘮𑘹𑙁", hindi: "हर एक रहस्य को वो पढ़ती रहे।" },
+  { modi: "𑘭𑘝𑘿𑘧 𑘍𑘨 𑘦𑘽𑘕𑘲𑘩 𑘎𑘲 𑘕𑘲𑘭𑘹 𑘝𑘩𑘰𑘫 𑘮𑘺,", hindi: "सत्य और मंज़िल की जिसे तलाश है," },
+  { modi: "𑘀𑘡𑘿𑘪𑘹𑘬𑘰 𑘮𑘲 𑘄𑘭 𑘏𑘻𑘕 𑘎𑘰 𑘢𑘿𑘨𑘎𑘰𑘫 𑘮𑘺𑙁", hindi: "अन्वेषा ही उस खोज का प्रकाश है।" },
+];
+let versePlayed = false;
+let verseActive = false;
+let verseCleanup = null;
+
+// split into grapheme clusters so Modi matras stay attached to their letters
+function graphemes(s) {
+  if (typeof Intl !== "undefined" && Intl.Segmenter) {
+    return [...new Intl.Segmenter("hi", { granularity: "grapheme" }).segment(s)].map((x) => x.segment);
+  }
+  return [...s];
+}
+
+function runGateVerse() {
+  versePlayed = true;
+  verseActive = true;
+  const LINE_GAP = 2.15; // seconds between line starts (matches the recitation)
+  const el = document.createElement("div");
+  el.id = "gate-verse";
+  el.innerHTML = VERSE_LINES.map((l, i) => {
+    const letters = graphemes(l.modi)
+      .map((g, k) => `<span class="gv-ch" style="animation-delay:${(i * LINE_GAP + 0.15 + k * 0.055).toFixed(2)}s">${g === " " ? "&nbsp;" : g}</span>`)
+      .join("");
+    return `<div class="gv-line">
+      <div class="gv-modi">${letters}</div>
+      <div class="gv-hindi" style="animation-delay:${(i * LINE_GAP + 0.7).toFixed(2)}s">${l.hindi}</div>
+    </div>`;
+  }).join("") + `<div class="gv-skip">tap to skip</div>`;
+  document.body.appendChild(el);
+
+  const clip = new Audio("voice/gate-verse.mp3");
+  clip.play().catch(() => {});
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    verseActive = false;
+    verseCleanup = null;
+    try { clip.pause(); } catch {}
+    el.classList.add("gone");
+    setTimeout(() => el.remove(), 900);
+    openTheGate();
+  };
+  verseCleanup = finish;
+  el.addEventListener("pointerup", finish); // tap anywhere to skip
+  clip.addEventListener("ended", () => setTimeout(finish, 700));
+  setTimeout(finish, 12000); // safety net if audio never fires
 }
 
 // keyboard
@@ -1056,6 +1121,7 @@ addEventListener("keydown", (e) => {
     return;
   }
   if (showcaseMode) { exitShowcase(); return; } // any key hands over control
+  if (verseActive) { verseCleanup?.(); return; } // skip the gate verse
   if (k === " " || k === "enter" || k === "e") interact();
   // quick shortcuts: index / journal / cycle camera angle
   if (!isAnyOverlayOpen()) {
@@ -1129,6 +1195,7 @@ renderer.domElement.addEventListener("pointerup", (e) => {
   down = null;
   dragging = false;
   if (showcaseMode) { exitShowcase(); return; } // tap hands over control
+  if (verseActive) { verseCleanup?.(); return; } // skip the gate verse
   if (isNarrating()) { advanceNarration(); return; }
   if (isAnyOverlayOpen()) return;
   if (pointerLocked) {
@@ -1348,7 +1415,7 @@ function animate() {
   const dt = clock.getDelta();
   const t = clock.elapsedTime; // updated by getDelta()
   if (heroMixer) heroMixer.update(dt);
-  const overlay = isAnyOverlayOpen() || !started || settling || showcaseMode;
+  const overlay = isAnyOverlayOpen() || !started || settling || showcaseMode || verseActive;
   if (overlay && pointerLocked) document.exitPointerLock();
 
   // the gate swings open once triggered
