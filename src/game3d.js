@@ -961,17 +961,26 @@ const LEGACY = [
 const legacyStands = []; // {x, z, label} for prompt + terrace collision
 {
   const texLoader = new THREE.TextureLoader();
-  const frameMat = new THREE.MeshStandardMaterial({ color: 0x6e4423, roughness: 0.7 });
+  const agedWood = new THREE.MeshStandardMaterial({ color: 0x3f2a14, roughness: 0.85 });
+  // engraved plate: big serif name over a deep-teal ground with double gold rule
   const nameplate = (l) => {
     const cv = document.createElement("canvas");
-    cv.width = 256; cv.height = 64;
+    cv.width = 512; cv.height = 160;
     const x = cv.getContext("2d");
-    x.fillStyle = "#123f38"; x.fillRect(0, 0, 256, 64);
-    x.strokeStyle = "#c9a24b"; x.lineWidth = 3; x.strokeRect(4, 4, 248, 56);
-    x.fillStyle = "#f0e6c8"; x.textAlign = "center";
-    x.font = "bold 22px Georgia"; x.fillText(`VOL ${l.vol} · ${l.name}`, 128, 30);
-    x.font = "16px Georgia"; x.fillStyle = "#c9a24b"; x.fillText(String(l.year), 128, 52);
+    const grad = x.createLinearGradient(0, 0, 0, 160);
+    grad.addColorStop(0, "#143f37"); grad.addColorStop(1, "#0a2822");
+    x.fillStyle = grad; x.fillRect(0, 0, 512, 160);
+    x.strokeStyle = "#c9a24b"; x.lineWidth = 6; x.strokeRect(8, 8, 496, 144);
+    x.lineWidth = 2; x.strokeRect(20, 20, 472, 120);
+    x.textAlign = "center";
+    x.fillStyle = "#c9a24b"; x.font = "24px Georgia";
+    x.fillText(`— PICTOREAL · ${l.year} —`, 256, 52);
+    x.fillStyle = "#f4ecd8"; x.font = "bold 52px Georgia";
+    x.fillText(l.name, 256, 108);
+    x.fillStyle = "#c9a24b"; x.font = "22px Georgia";
+    x.fillText(`VOLUME ${l.vol}`, 256, 140);
     const t = new THREE.CanvasTexture(cv);
+    t.anisotropy = 8;
     return new THREE.MeshBasicMaterial({ map: t, toneMapped: false });
   };
   LEGACY.forEach((l, i) => {
@@ -980,22 +989,61 @@ const legacyStands = []; // {x, z, label} for prompt + terrace collision
     const gx = side * 9;
     const gz = GATE_Z + 21 - Math.floor(i / 2) * 4.2 - (side > 0 ? 2.1 : 0);
     const g = new THREE.Group();
-    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.75, 2.1, 8), pillarMat);
-    ped.position.y = 1.05; ped.castShadow = true;
+    // stone base: wide plinth + column
+    const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 1.2), stone);
+    plinth.position.y = 0.25; plinth.castShadow = true;
+    g.add(plinth);
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.68, 1.7, 8), pillarMat);
+    ped.position.y = 1.35; ped.castShadow = true;
     g.add(ped);
-    const frame = new THREE.Mesh(new THREE.BoxGeometry(2.35, 3.05, 0.16), frameMat);
-    frame.position.y = 3.6;
-    g.add(frame);
+    // ancient niche: weathered slab, aged-wood rails, gold beading + rosettes
+    const CY = 4.0; // frame centre height
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(2.9, 4.15, 0.18), stone);
+    slab.position.y = CY; slab.castShadow = true;
+    g.add(slab);
+    const railW = 2.5, railH = 3.35;
+    for (const [w, h, px, py] of [
+      [railW, 0.18, 0, railH / 2], [railW, 0.18, 0, -railH / 2],
+      [0.18, railH, -railW / 2, 0], [0.18, railH, railW / 2, 0],
+    ]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.1), agedWood);
+      rail.position.set(px, CY + py, 0.1);
+      g.add(rail);
+    }
+    for (const [w, h, px, py] of [
+      [2.2, 0.05, 0, 1.46], [2.2, 0.05, 0, -1.46],
+      [0.05, 2.95, -1.08, 0], [0.05, 2.95, 1.08, 0],
+    ]) {
+      const bead = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.05), gold);
+      bead.position.set(px, CY + py, 0.16);
+      g.add(bead);
+    }
+    for (const [px, py] of [[-1.2, 1.62], [1.2, 1.62], [-1.2, -1.62], [1.2, -1.62]]) {
+      const rosette = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), gold);
+      rosette.position.set(px, CY + py, 0.14);
+      g.add(rosette);
+    }
+    // pediment crown + diya-gold finial
+    const pediment = new THREE.Mesh(new THREE.BoxGeometry(3.15, 0.34, 0.3), stoneDark);
+    pediment.position.y = CY + 2.24;
+    g.add(pediment);
+    const finial = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8),
+      new THREE.MeshStandardMaterial({ color: 0xfcde5a, emissive: 0xc98228, emissiveIntensity: 0.8 }));
+    finial.position.y = CY + 2.52;
+    g.add(finial);
+    // the cover
     const tex = texLoader.load(`art/legacy/${l.file}.jpg`);
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 8;
     const cover = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.1, 2.8),
+      new THREE.PlaneGeometry(2.0, 2.72),
       new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, color: 0xd8d8d8 })
     );
-    cover.position.set(0, 3.6, 0.09);
+    cover.position.set(0, CY + 0.12, 0.17);
     g.add(cover);
-    const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.48), nameplate(l));
-    plate.position.set(0, 1.95, 0.09);
+    // the engraved plate sits on the slab's lower rail — big and readable
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.75), nameplate(l));
+    plate.position.set(0, CY - 1.72, 0.17);
     g.add(plate);
     g.position.set(gx, GY, gz);
     g.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2; // face the walkway
