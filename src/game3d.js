@@ -944,6 +944,67 @@ const eyeMat = new THREE.PointsMaterial({
 });
 scene.add(new THREE.Points(egeo, eyeMat));
 
+// ---- THE PATH OF VOLUMES: nine past Pictoreals flank the walk to the gate,
+// oldest by the spawn, newest beside the doors — you walk the magazine's
+// history year by year, and Volume 28 is the gate itself. ----
+const LEGACY = [
+  { file: "v19", vol: 19, name: "CHANGE", year: 2017 },
+  { file: "v20", vol: 20, name: "PERSPECTIVE", year: 2018 },
+  { file: "v21", vol: 21, name: "ALCHEMY", year: 2019 },
+  { file: "v22", vol: 22, name: "ABSTRACT", year: 2020 },
+  { file: "v23", vol: 23, name: "KSHITIJ", year: 2021 },
+  { file: "v24", vol: 24, name: "PHOENIX", year: 2022 },
+  { file: "v25", vol: 25, name: "ODYSSEY", year: 2023 },
+  { file: "v26", vol: 26, name: "NAVRAS", year: 2024 },
+  { file: "v27", vol: 27, name: "PRAHAR", year: 2025 },
+];
+const legacyStands = []; // {x, z, label} for prompt + terrace collision
+{
+  const texLoader = new THREE.TextureLoader();
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x6e4423, roughness: 0.7 });
+  const nameplate = (l) => {
+    const cv = document.createElement("canvas");
+    cv.width = 256; cv.height = 64;
+    const x = cv.getContext("2d");
+    x.fillStyle = "#123f38"; x.fillRect(0, 0, 256, 64);
+    x.strokeStyle = "#c9a24b"; x.lineWidth = 3; x.strokeRect(4, 4, 248, 56);
+    x.fillStyle = "#f0e6c8"; x.textAlign = "center";
+    x.font = "bold 22px Georgia"; x.fillText(`VOL ${l.vol} · ${l.name}`, 128, 30);
+    x.font = "16px Georgia"; x.fillStyle = "#c9a24b"; x.fillText(String(l.year), 128, 52);
+    const t = new THREE.CanvasTexture(cv);
+    return new THREE.MeshBasicMaterial({ map: t, toneMapped: false });
+  };
+  LEGACY.forEach((l, i) => {
+    // oldest farthest from the gate; alternate left/right of the walkway
+    const side = i % 2 === 0 ? -1 : 1;
+    const gx = side * 9;
+    const gz = GATE_Z + 21 - Math.floor(i / 2) * 4.2 - (side > 0 ? 2.1 : 0);
+    const g = new THREE.Group();
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.75, 2.1, 8), pillarMat);
+    ped.position.y = 1.05; ped.castShadow = true;
+    g.add(ped);
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(2.35, 3.05, 0.16), frameMat);
+    frame.position.y = 3.6;
+    g.add(frame);
+    const tex = texLoader.load(`art/legacy/${l.file}.jpg`);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const cover = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.1, 2.8),
+      new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, color: 0xd8d8d8 })
+    );
+    cover.position.set(0, 3.6, 0.09);
+    g.add(cover);
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 0.48), nameplate(l));
+    plate.position.set(0, 1.95, 0.09);
+    g.add(plate);
+    g.position.set(gx, GY, gz);
+    g.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2; // face the walkway
+    scene.add(g);
+    legacyStands.push({ x: gx, z: gz, label: `PICTOREAL · Vol ${l.vol} “${l.name}” · ${l.year}` });
+  });
+}
+let legacyIntroDone = false;
+
 // ---- PHOTO MODE: frame the descent like a magazine plate ----
 // P / 📷 freezes the moment, hides the UI and frees the camera (full orbit,
 // dolly, looks). The snap is composed like a print: folk border, the seal,
@@ -1713,6 +1774,11 @@ function animate() {
         const inMouth = gateOpen && Math.abs(heroPos.x) < GAP / 2 - 1;
         heroPos.z = Math.max(inMouth ? GATE_Z - 3 : GATE_Z - 1, Math.min(GATE_Z + 24, heroPos.z + heroVel.z));
         if (!gateOpen && heroPos.z < GATE_Z + 1.2) heroPos.z = GATE_Z + 1.2;
+        // don't walk through the legacy pedestals
+        for (const st of legacyStands) {
+          const dx = heroPos.x - st.x, dz = heroPos.z - st.z, d = Math.hypot(dx, dz);
+          if (d < 1.4 && d > 0.001) { heroPos.x = st.x + (dx / d) * 1.4; heroPos.z = st.z + (dz / d) * 1.4; }
+        }
       } else {
         const next = slideMove(cave, heroPos.x, heroPos.z, heroVel.x, heroVel.z, 0.9);
         if (next.x === heroPos.x) heroVel.x = 0;
@@ -1901,8 +1967,17 @@ function animate() {
   // proximity prompt
   if (!overlay) {
     const nearLotus = Math.hypot(heroPos.x - lotusNode.x, heroPos.z - lotusNode.z) < 4.5;
+    let nearLegacy = null;
+    for (const st of legacyStands) {
+      if (Math.hypot(heroPos.x - st.x, heroPos.z - st.z) < 4.5) { nearLegacy = st; break; }
+    }
+    if (nearLegacy && !legacyIntroDone && !isNarrating()) {
+      legacyIntroDone = true;
+      narrate([SECRETS.legacy]);
+    }
     const near = nearestSlot();
     if (nearLotus) { prompt.textContent = "✦ a golden lotus waits — press E"; prompt.style.opacity = "1"; }
+    else if (nearLegacy) { prompt.textContent = nearLegacy.label; prompt.style.opacity = "1"; }
     else if (near && near.stop) { prompt.textContent = "Press E to open · " + near.stop.page.title; prompt.style.opacity = "1"; }
     else if (near) { prompt.textContent = "A sealed folio — awaiting a future volume"; prompt.style.opacity = "1"; }
     else { prompt.style.opacity = "0"; }

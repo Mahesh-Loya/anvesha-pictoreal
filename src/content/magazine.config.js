@@ -37,6 +37,7 @@ export const magazine = {
     closingIncomplete: "Pages still wait in the dark. Return, and keep seeking.",
     // hidden lines — spoken only when a seeker discovers the well's secrets
     secrets: {
+      legacy: "यह राह अकेली नहीं बनी, साधक। हर दीप से पहले एक और दीप जला था — ये उन्हीं बरसों की कथाएँ हैं।",
       poke: "मुझे नहीं, साधक... पन्नों को छुओ। कथा उनमें बसती है।",
       eye: "जिसे तुम खोज रहे हो, साधक... वह भी तुम्हें देख रही है।",
       lotus: "यह कमल हर किसी को नहीं मिलता, साधक। जो खोज की राह में भटकते नहीं, उन्हीं के लिए यह आख़िरी पन्ना खिलता है।",
