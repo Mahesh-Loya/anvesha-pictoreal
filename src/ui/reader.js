@@ -1,4 +1,4 @@
-import { playPageOpen } from "../systems/audio.js";
+import { playPageOpen, setMusicDucked } from "../systems/audio.js";
 import { speak, stopSpeaking, isVoiceEnabled } from "../systems/voice.js";
 import { isTouchDevice } from "./touch.js";
 import { likesEnabled, getLikes, toggleLike, hasLiked } from "../systems/likes.js";
@@ -17,6 +17,7 @@ export function openReader(pageData, onFirstRead) {
   if (isReaderOpen()) return;
   currentPageData = pageData;
   playPageOpen();
+  setMusicDucked(true); // hush the music so the page's narration reads clearly
 
   const root = document.getElementById("reader-root");
 
@@ -280,6 +281,7 @@ export function closeReader() {
   currentPageData = null;
   if (autoReadTimer) { clearTimeout(autoReadTimer); autoReadTimer = null; }
   stopSpeaking();
+  setMusicDucked(false); // music swells back as the page closes
   // Clicking the close button moved DOM focus off the Kaplay canvas, which
   // would leave keyboard input (movement, E) dead until the player clicks
   // back. Restore focus so play resumes immediately.
