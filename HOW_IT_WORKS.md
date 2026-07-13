@@ -158,12 +158,14 @@ spoken introductions in each page's language — that's what the Sutradhar says.
 ## 10. Deployment (how it goes live)
 
 - Code lives on **GitHub**: `github.com/Mahesh-Loya/anvesha-pictoreal`.
-- A **GitHub Actions** workflow (`.github/workflows/deploy.yml`) runs on every
-  push to `master`: it installs deps, **runs the tests**, builds with Vite, and
-  publishes `dist/` to **GitHub Pages**.
-- Live at: **https://mahesh-loya.github.io/anvesha-pictoreal/**
-- Asset URLs are relative so the site works from the `/anvesha-pictoreal/`
-  subpath. There's an Open Graph card + favicon so shared links preview nicely.
+- **Primary host: Vercel** — connected to the repo, it builds with Vite and
+  auto-deploys on every push to `master`. Live at
+  **https://anvesha-pictoreal.vercel.app/** (served from the root).
+- **Backup host: GitHub Pages** — a GitHub Actions workflow
+  (`.github/workflows/deploy.yml`) also runs the tests, builds and publishes
+  `dist/` on every push. All asset URLs are relative, so the site works from
+  both the Vercel root and the Pages `/anvesha-pictoreal/` subpath.
+- An Open Graph card + favicon make shared links preview nicely.
 
 ---
 

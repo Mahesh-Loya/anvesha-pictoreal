@@ -4,18 +4,19 @@ An explorable 3D companion to **PICTOREAL Volume 28** (theme: *Anvesha*, the see
 Descend a lamp-lit stepwell shaped like the Pictoreal mandala-eye, guided by the
 Sutradhar, and uncover all 154 pages of the magazine hidden in its niches.
 
-**Play it:** https://mahesh-loya.github.io/anvesha-pictoreal/
+**Play it:** https://anvesha-pictoreal.vercel.app/
 
 **Cinematic showcase** (for events/projectors — a looping auto-flight with
 captions and a QR finale; any key hands control to a live player):
-https://mahesh-loya.github.io/anvesha-pictoreal/?showcase
+https://anvesha-pictoreal.vercel.app/?showcase
 
 **QR code** to the game (printable): `public/qr.png` — also served at
-https://mahesh-loya.github.io/anvesha-pictoreal/qr.png
+https://anvesha-pictoreal.vercel.app/qr.png
 
 - `npm run dev` — local dev server
 - `npm test` — test suite
-- `npm run build` — production build (auto-deployed to GitHub Pages on push to master)
+- `npm run build` — production build (auto-deployed to **Vercel** — primary,
+  https://anvesha-pictoreal.vercel.app/ — and GitHub Pages as a backup, on every push to master)
 - `npm run voice:generate` — regenerate the Sutradhar's ElevenLabs narration
   (needs `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID` env vars; keys never enter the repo)
 
