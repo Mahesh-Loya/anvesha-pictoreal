@@ -17,6 +17,7 @@ import { writeFile, mkdir, access } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { magazine } from "../src/content/magazine.config.js";
+import { pronounce } from "../src/systems/pronounce.js";
 
 const API_KEY = process.env.ELEVENLABS_API_KEY;
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
@@ -90,7 +91,7 @@ async function main() {
     const dest = path.join(OUT_DIR, file);
     if (await exists(dest)) { skipped++; continue; }
     process.stdout.write(`· ${text.slice(0, 54)}${text.length > 54 ? "…" : ""}\n`);
-    const buf = await tts(text);
+    const buf = await tts(pronounce(text)); // key stays original; audio says it right
     await writeFile(dest, buf);
     made++;
   }

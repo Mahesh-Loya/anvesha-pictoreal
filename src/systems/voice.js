@@ -1,4 +1,5 @@
 import { state } from "../state.js";
+import { pronounce } from "./pronounce.js";
 
 // The Sutradhar's voice. Two tiers, chosen automatically per line:
 //   1. Pre-generated ElevenLabs clips (high quality, Hindi-capable) if present.
@@ -114,7 +115,7 @@ function playLine(text, rate, pitch, effLang, gen) {
 function speakSynth(text, rate, pitch, lang) {
   if (!synth) return;
   synth.cancel();
-  const u = new SpeechSynthesisUtterance(String(text).replace(/\s+/g, " ").trim());
+  const u = new SpeechSynthesisUtterance(pronounce(String(text)).replace(/\s+/g, " ").trim());
   const v = pickVoice(lang);
   if (v) u.voice = v;
   u.lang = LANG_TAG[lang] || "en-IN"; // helps the engine even when no named voice matches
