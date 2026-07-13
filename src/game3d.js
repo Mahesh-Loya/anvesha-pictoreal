@@ -822,7 +822,9 @@ new GLTFLoader().load(
 );
 
 // hero roams the floor freely in X/Z; y follows the ground (entrance is raised)
-const heroPos = new THREE.Vector3(0, 0, GATE_Z + 8);
+// spawn at the far end of the terrace, facing the gate, so the walk forward
+// leads through the avenue of past volumes to Volume 28 (the gate)
+const heroPos = new THREE.Vector3(0, 0, GATE_Z + 24);
 let heroFacing = Math.PI; // facing the gate / into the hall
 function placeHero() {
   hero.position.set(heroPos.x, groundHeightAt(heroPos.z, heroPos.x) + 0.2, heroPos.z);
@@ -962,32 +964,31 @@ const legacyStands = []; // {x, z, label} for prompt + terrace collision
 {
   const texLoader = new THREE.TextureLoader();
   const agedWood = new THREE.MeshStandardMaterial({ color: 0x3f2a14, roughness: 0.85 });
-  // engraved plate: big serif name over a deep-teal ground with double gold rule
+  // engraved plate: the volume NAME dominates, on a lit brass ground so it
+  // reads from across the walkway
   const nameplate = (l) => {
     const cv = document.createElement("canvas");
-    cv.width = 512; cv.height = 160;
+    cv.width = 640; cv.height = 190;
     const x = cv.getContext("2d");
-    const grad = x.createLinearGradient(0, 0, 0, 160);
-    grad.addColorStop(0, "#143f37"); grad.addColorStop(1, "#0a2822");
-    x.fillStyle = grad; x.fillRect(0, 0, 512, 160);
-    x.strokeStyle = "#c9a24b"; x.lineWidth = 6; x.strokeRect(8, 8, 496, 144);
-    x.lineWidth = 2; x.strokeRect(20, 20, 472, 120);
-    x.textAlign = "center";
-    x.fillStyle = "#c9a24b"; x.font = "24px Georgia";
-    x.fillText(`— PICTOREAL · ${l.year} —`, 256, 52);
-    x.fillStyle = "#f4ecd8"; x.font = "bold 52px Georgia";
-    x.fillText(l.name, 256, 108);
-    x.fillStyle = "#c9a24b"; x.font = "22px Georgia";
-    x.fillText(`VOLUME ${l.vol}`, 256, 140);
+    const grad = x.createLinearGradient(0, 0, 0, 190);
+    grad.addColorStop(0, "#e7cf94"); grad.addColorStop(0.5, "#d4b070"); grad.addColorStop(1, "#b8933f");
+    x.fillStyle = grad; x.fillRect(0, 0, 640, 190);
+    x.strokeStyle = "#3a2a12"; x.lineWidth = 8; x.strokeRect(10, 10, 620, 170);
+    x.lineWidth = 2; x.strokeRect(24, 24, 592, 142);
+    x.textAlign = "center"; x.fillStyle = "#3a2a12";
+    x.font = "26px Georgia"; x.fillText(`PICTOREAL · ${l.year}`, 320, 58);
+    x.font = "bold 78px Georgia"; x.fillText(l.name, 320, 132);
+    x.font = "24px Georgia"; x.fillText(`VOLUME ${l.vol}`, 320, 166);
     const t = new THREE.CanvasTexture(cv);
     t.anisotropy = 8;
     return new THREE.MeshBasicMaterial({ map: t, toneMapped: false });
   };
   LEGACY.forEach((l, i) => {
-    // oldest farthest from the gate; alternate left/right of the walkway
+    // a processional avenue: oldest nearest the spawn (far end), newest nearest
+    // the gate, stopping ~9 units short so the mural + gate stand alone
     const side = i % 2 === 0 ? -1 : 1;
-    const gx = side * 9;
-    const gz = GATE_Z + 21 - Math.floor(i / 2) * 4.2 - (side > 0 ? 2.1 : 0);
+    const gx = side * 10;
+    const gz = GATE_Z + 22 - Math.floor(i / 2) * 3.2;
     const g = new THREE.Group();
     // stone base: wide plinth + column
     const plinth = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.5, 1.2), stone);
@@ -1042,11 +1043,13 @@ const legacyStands = []; // {x, z, label} for prompt + terrace collision
     cover.position.set(0, CY + 0.12, 0.17);
     g.add(cover);
     // the engraved plate sits on the slab's lower rail — big and readable
-    const plate = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.75), nameplate(l));
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(2.62, 0.78), nameplate(l));
     plate.position.set(0, CY - 1.72, 0.17);
     g.add(plate);
     g.position.set(gx, GY, gz);
-    g.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2; // face the walkway
+    // face the walkway, angled slightly toward the approaching seeker so the
+    // covers + plates are readable as you walk down the avenue
+    g.rotation.y = side < 0 ? Math.PI / 2 - 0.32 : -Math.PI / 2 + 0.32;
     scene.add(g);
     legacyStands.push({ x: gx, z: gz, label: `PICTOREAL · Vol ${l.vol} “${l.name}” · ${l.year}` });
   });
@@ -1820,7 +1823,7 @@ function animate() {
         // off (this used to clamp at GATE_Z-1 forever, so after climbing back
         // to the terrace you could never descend the stairs again)
         const inMouth = gateOpen && Math.abs(heroPos.x) < GAP / 2 - 1;
-        heroPos.z = Math.max(inMouth ? GATE_Z - 3 : GATE_Z - 1, Math.min(GATE_Z + 24, heroPos.z + heroVel.z));
+        heroPos.z = Math.max(inMouth ? GATE_Z - 3 : GATE_Z - 1, Math.min(GATE_Z + 26, heroPos.z + heroVel.z));
         if (!gateOpen && heroPos.z < GATE_Z + 1.2) heroPos.z = GATE_Z + 1.2;
         // don't walk through the legacy pedestals
         for (const st of legacyStands) {
