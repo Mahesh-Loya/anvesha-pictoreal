@@ -28,7 +28,7 @@ export function openReader(pageData, onFirstRead) {
       <button class="reader-close" aria-label="Close">×</button>
       <button class="reader-listen" aria-label="Read aloud">🔊 Read aloud</button>
       <button class="reader-share" aria-label="Share this page">🔗 Share</button>
-      <div class="reader-image-wrap">
+      <div class="reader-image-wrap" style="background-image:url('${pageData.surfaceImage.replace("pages/real/", "pages/thumb/")}')">
         <img class="surface-layer" src="${pageData.surfaceImage}" alt="${pageData.title}" draggable="false" />
         <div class="reader-zoom-hint">scroll / pinch to zoom · drag to pan · double-tap to reset</div>
       </div>

@@ -181,6 +181,11 @@ body.touch #three-root canvas { touch-action: none; }
   overflow: hidden;
   cursor: grab;
   touch-action: none; /* we handle pinch/drag ourselves */
+  /* the 192px thumbnail (already cached from the plaque) shows instantly as a
+     placeholder while the full-res page loads/sharpens in over it */
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
 }
 .reader-image-wrap.zoomed { cursor: grabbing; }
 

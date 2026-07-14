@@ -881,6 +881,14 @@ const C_WHITE = new THREE.Color(0xffffff);
 
 // reveal palette
 const REVEAL = 16;
+// preload full-res pages within this radius so opening a page is instant
+const PRELOAD_R = 22;
+const preloaded = new Set();
+function preloadPage(page) {
+  if (!page) return;
+  const im = new Image();
+  im.src = page.surfaceImage;
+}
 const C_BLACK = new THREE.Color(0x040c0a);
 const C_GOLD = new THREE.Color(0xffd25e);
 const C_PARCH = new THREE.Color(0xf4ece0);
@@ -1279,6 +1287,7 @@ function flyFragmentToJournal() {
 setJumpHandler((pageId) => {
   const slot = slots.find((s) => s.stop && s.stop.page.id === pageId);
   if (!slot) return;
+  preloadPage(slot.stop.page); // jumped-to page has no approach time — preload now
   // stand on the floor in front of the niche, facing it
   heroPos.set(slot.x + Math.sin(slot.angle) * 2.4, 0, slot.z + Math.cos(slot.angle) * 2.4);
   heroFacing = slot.angle + Math.PI;
@@ -1944,6 +1953,13 @@ function animate() {
   // (in showcase mode the whole gallery glows for the flythrough)
   for (const s of slots) {
     const d = Math.hypot(s.x - heroPos.x, s.z - heroPos.z);
+    // preload the full-res page as you approach (once), so it's already in the
+    // browser cache — and thus instant — by the time you press E to open it
+    if (s.stop && d < PRELOAD_R && !preloaded.has(s.i)) {
+      preloaded.add(s.i);
+      const im = new Image();
+      im.src = s.stop.page.surfaceImage;
+    }
     const prox = showcaseMode ? 1 : Math.max(0, Math.min(1, 1 - d / REVEAL));
     let frameBase, panelBase, gain;
     if (s.sealed) { frameBase = C_SEAL; panelBase = C_SEAL; gain = 0.45; }
