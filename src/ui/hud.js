@@ -1,4 +1,5 @@
 import { getSurfacedCount, getTotalFragments } from "../systems/fragments.js";
+import { state } from "../state.js";
 import { toggleMute, isMuted } from "../systems/audio.js";
 import { toggleVoice, isVoiceEnabled } from "../systems/voice.js";
 import { openJournal } from "./journal.js";
@@ -9,6 +10,7 @@ export function mountHud() {
   const root = document.getElementById("hud-root");
   root.innerHTML = `
     <div class="hud-counter" id="hud-counter">Uncovered: ${getSurfacedCount()} / ${getTotalFragments()}</div>
+    <div class="hud-counter hud-stars" id="hud-stars">★ ${state.starsCollected.size} / 28</div>
     <div class="hud-buttons">
       <button id="hud-index" title="Index">☰</button>
       <button id="hud-journal" title="Collection">📖</button>

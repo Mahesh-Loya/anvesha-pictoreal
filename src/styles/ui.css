@@ -1072,3 +1072,72 @@ body.photo #touch-controls { display: none !important; }
   animation: phFlash 0.45s ease-out forwards;
 }
 @keyframes phFlash { 0% { opacity: 0.9; } 100% { opacity: 0; } }
+
+/* ---- star counter ---- */
+.hud-stars {
+  color: #ffe08a;
+  border-color: rgba(255, 224, 138, 0.6);
+}
+.hud-stars.full { color: #57e08a; border-color: #57e08a; box-shadow: 0 0 12px rgba(87, 224, 138, 0.4); }
+.hud-stars.pop { animation: starPop 0.4s ease; }
+@keyframes starPop { 0%,100% { transform: scale(1); } 45% { transform: scale(1.28); } }
+
+/* ---- finale credits ---- */
+#finale-credits {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  background: radial-gradient(ellipse 80% 70% at 50% 40%, #2a0f5c, #0a0418 70%);
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+#finale-credits.on { opacity: 1; }
+.fc-inner {
+  max-width: 720px;
+  padding: 40px 26px;
+  text-align: center;
+  color: #ede8f5;
+  font-family: Georgia, serif;
+}
+.fc-logo { width: min(26vh, 170px); filter: drop-shadow(0 0 40px rgba(155, 92, 255, 0.6)); }
+.fc-eyebrow { letter-spacing: 4px; text-transform: uppercase; font-size: 12px; color: #b79cff; margin-top: 14px; }
+.fc-title { font-size: clamp(38px, 7vw, 68px); color: #ffe08a; margin: 6px 0 4px; }
+.fc-sub { color: #cfc6e6; line-height: 1.6; margin: 0 0 22px; }
+.fc-v29 {
+  display: inline-block;
+  border: 1px solid #9b5cff;
+  border-radius: 22px;
+  padding: 8px 20px;
+  letter-spacing: 3px;
+  color: #d9c8ff;
+  box-shadow: 0 0 24px rgba(155, 92, 255, 0.35);
+  margin-bottom: 28px;
+}
+.fc-makers { border-top: 1px solid rgba(183, 156, 255, 0.25); padding-top: 20px; }
+.fc-makers h2 { font-size: 16px; letter-spacing: 2px; color: #b79cff; text-transform: uppercase; margin: 0 0 14px; }
+.fc-makers p { margin: 6px 0; font-size: 15px; color: #e7e1f4; line-height: 1.5; }
+.fc-makers b { color: #ffe08a; font-weight: normal; }
+.fc-teams { font-style: italic; color: #b9b0d0 !important; margin-top: 14px !important; font-size: 14px !important; }
+#fc-close {
+  margin-top: 30px;
+  border: 1px solid var(--diya-gold, #fcde5a);
+  background: rgba(252, 222, 90, 0.1);
+  color: #fcde5a;
+  font-family: Georgia, serif;
+  font-size: 16px;
+  padding: 10px 24px;
+  border-radius: 24px;
+  cursor: pointer;
+}
+#fc-close:hover { background: rgba(252, 222, 90, 0.22); }
+
+/* hide the play UI during the portal finale cinematic */
+body.finale #hud-root,
+body.finale #minimap,
+body.finale #controls-hint,
+body.finale #prompt3d,
+body.finale #touch-controls { display: none !important; }

@@ -7,7 +7,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { generateCave, isWalkable, slideMove } from "./world/cave.js";
 import gsap from "gsap";
 import { magazine } from "./content/magazine.config.js";
-import { state } from "./state.js";
+import { state, saveProgress } from "./state.js";
 import { surfaceFragment, isJourneyComplete, getSurfacedCount, getTotalFragments } from "./systems/fragments.js";
 import { playFragmentChime, playFootstep, startAmbientMusic, playDescentRumble, setMusicDucked } from "./systems/audio.js";
 import { openReader, isReaderOpen, closeReader } from "./ui/reader.js";
@@ -1226,9 +1226,221 @@ function handlePoke() {
   if (pokeCount >= 3 && !pokeDone) { pokeDone = true; narrate([SECRETS.poke]); }
 }
 
+// ---- 28 hidden stars: a treasure hunt across the well. The Sutradhar
+// collects one by walking into it; they show as green dots on the minimap.
+// Collect all 28 AND read all 154 pages to open the portal to Volume 29. ----
+const STAR_COUNT = 28;
+const starDefs = []; // { x, z, id }
+{
+  // spread the stars across the far reaches — every chamber but the hub, then
+  // a few along the longest tunnels, so they're scattered and worth seeking
+  const spots = [];
+  for (const n of cave.nodes) {
+    if (n.hub) continue;
+    // a point set a little off the chamber centre (deterministic, no RNG)
+    spots.push({ x: n.x + Math.cos(n.id * 1.7) * (n.r * 0.45), z: n.z + Math.sin(n.id * 1.7) * (n.r * 0.45), d: Math.hypot(n.x, n.z) });
+  }
+  for (const e of cave.edges) {
+    const a = cave.nodes[e.a], b = cave.nodes[e.b];
+    const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
+    spots.push({ x: mx, z: mz, d: Math.hypot(mx, mz) });
+  }
+  // sort by distance from the hub (farthest first = best hidden), then pick 28
+  // evenly across that ordering for a good spread near→far
+  spots.sort((p, q) => q.d - p.d);
+  const step = Math.max(1, Math.floor(spots.length / STAR_COUNT));
+  for (let i = 0, k = 0; k < STAR_COUNT && i < spots.length; i += step, k++) {
+    starDefs.push({ x: spots[i].x, z: spots[i].z, id: k });
+  }
+}
+// star mesh: a glowing gold octahedron with an additive halo sprite
+const starGeo = new THREE.OctahedronGeometry(0.5, 0);
+const starMat = new THREE.MeshBasicMaterial({ color: 0xfff1a8, toneMapped: false });
+const haloTex = (() => {
+  const cv = document.createElement("canvas"); cv.width = cv.height = 64;
+  const g = cv.getContext("2d").createRadialGradient(32, 32, 2, 32, 32, 32);
+  g.addColorStop(0, "rgba(255,235,150,0.9)"); g.addColorStop(1, "rgba(255,200,80,0)");
+  const c = cv.getContext("2d"); c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(cv);
+})();
+const starMeshes = starDefs.map((s) => {
+  const grp = new THREE.Group();
+  const body = new THREE.Mesh(starGeo, starMat);
+  grp.add(body);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xffe08a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  halo.scale.setScalar(2.4);
+  grp.add(halo);
+  grp.position.set(s.x, groundHeightAt(s.z, s.x) + 2.2, s.z);
+  grp.visible = !state.starsCollected.has(s.id);
+  scene.add(grp);
+  return grp;
+});
+function starsCollectedCount() { return state.starsCollected.size; }
+function updateStarHud() {
+  const el = document.getElementById("hud-stars");
+  if (el) el.textContent = `★ ${starsCollectedCount()} / ${STAR_COUNT}`;
+  if (el) el.classList.toggle("full", starsCollectedCount() >= STAR_COUNT);
+}
+
+// ---- THE FINALE: all 28 stars + all 154 pages → a purple portal opens, the
+// stars merge into one orange star that enters it, and the Sutradhar follows,
+// through to a Volume 29 teaser + the makers' credits. ----
+let finaleActive = false;
+let finaleDone = false;
+let finaleStart = 0;
+let portalGroup = null, portalDisc = null, mergeSprites = [], orangeStar = null, creditsShown = false;
+
+function maybeStartFinale() {
+  if (finaleDone || finaleActive) return;
+  if (state.starsCollected.size >= STAR_COUNT && isJourneyComplete()) runFinale();
+}
+
+function runFinale() {
+  finaleActive = true;
+  finaleDone = true;
+  creditsShown = false;
+  document.body.classList.add("finale"); // hide HUD for the cinematic
+  setMusicDucked(true);
+  playDescentRumble();
+  heroPos.set(0, 0, 15);
+  heroFacing = Math.PI; // face the portal / hub centre
+  placeHero();
+  const target = heroModel || hero;
+  target.visible = true;
+
+  // the purple portal, upright at the hub, facing the seeker
+  portalGroup = new THREE.Group();
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(4.2, 0.5, 16, 48),
+    new THREE.MeshBasicMaterial({ color: 0x9b5cff, toneMapped: false })
+  );
+  portalGroup.add(ring);
+  portalDisc = new THREE.Mesh(
+    new THREE.CircleGeometry(4.0, 48),
+    new THREE.MeshBasicMaterial({ color: 0x3a1178, toneMapped: false, transparent: true, opacity: 0.92 })
+  );
+  portalDisc.position.z = -0.1;
+  portalGroup.add(portalDisc);
+  const pglow = new THREE.PointLight(0x9b5cff, 0, 60, 2);
+  pglow.position.z = 1;
+  portalGroup.add(pglow);
+  portalGroup.userData.glow = pglow;
+  portalGroup.position.set(0, 6.5, 0);
+  portalGroup.scale.setScalar(0.001);
+  scene.add(portalGroup);
+
+  // 28 star motes ringed around the hall, to converge into one
+  mergeSprites = [];
+  for (let i = 0; i < STAR_COUNT; i++) {
+    const a = (i / STAR_COUNT) * Math.PI * 2;
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xffe08a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    sp.scale.setScalar(2.2);
+    sp.position.set(Math.cos(a) * 22, 4 + Math.sin(a * 3) * 3, Math.sin(a) * 22);
+    sp.userData.from = sp.position.clone();
+    scene.add(sp);
+    mergeSprites.push(sp);
+  }
+  // the orange star they become
+  orangeStar = new THREE.Mesh(new THREE.OctahedronGeometry(0.6, 0), new THREE.MeshBasicMaterial({ color: 0xff8a2a, toneMapped: false }));
+  const oh = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xff9a3a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  oh.scale.setScalar(5);
+  orangeStar.add(oh);
+  orangeStar.position.set(0, 6.5, 0);
+  orangeStar.scale.setScalar(0.001);
+  scene.add(orangeStar);
+
+  finaleStart = clock.getElapsedTime();
+}
+
+const ease = (u) => u * u * (3 - 2 * u);
+function updateFinale(t) {
+  const T = t - finaleStart;
+  // P0 portal opens (0–2s); P1 stars converge (0.6–3s); P2 orange grows
+  // (3–4s); P3 star + hero enter the portal (4–6s); P4 credits (6s+)
+  const pOpen = ease(Math.min(1, T / 2));
+  portalGroup.scale.setScalar(0.001 + pOpen * 1);
+  portalGroup.userData.glow.intensity = pOpen * 7 + Math.sin(t * 3) * 0.6;
+  portalGroup.rotation.z = t * 0.4;
+  portalDisc.material.opacity = 0.6 + Math.sin(t * 5) * 0.15;
+
+  const conv = ease(Math.min(1, Math.max(0, (T - 0.6) / 2.4)));
+  for (const sp of mergeSprites) {
+    sp.position.lerpVectors(sp.userData.from, portalGroup.position, conv);
+    sp.material.opacity = 1 - ease(Math.min(1, Math.max(0, (T - 2.6) / 0.6)));
+  }
+  const grow = ease(Math.min(1, Math.max(0, (T - 2.9) / 1.0)));
+  orangeStar.scale.setScalar(0.001 + grow * 2.2);
+  orangeStar.rotation.y = t * 2;
+
+  if (T > 4) {
+    const enter = ease(Math.min(1, (T - 4) / 2));
+    // the orange star sinks into the portal disc; the hero strides after it
+    orangeStar.position.lerpVectors(new THREE.Vector3(0, 6.5, 0), portalGroup.position.clone().setZ(-2), enter);
+    orangeStar.scale.setScalar(2.2 * (1 - enter) + 0.2);
+    heroPos.z = 15 - enter * 15; // walk to the hub centre, into the portal
+    placeHero();
+    heroFacing = Math.PI;
+    if (heroModel || hero) (heroModel || hero).visible = enter < 0.9;
+  }
+
+  if (T > 6 && !creditsShown) { creditsShown = true; showFinaleCredits(); }
+
+  // camera: hold on the portal, push in as the star enters
+  const camZ = 34 - ease(Math.min(1, Math.max(0, (T - 4) / 2))) * 16;
+  camera.position.lerp(new THREE.Vector3(0, 7.5, camZ), 0.04);
+  camera.lookAt(0, 6.5, 0);
+}
+
+function showFinaleCredits() {
+  const el = document.createElement("div");
+  el.id = "finale-credits";
+  el.innerHTML = `
+    <div class="fc-inner">
+      <img class="fc-logo" src="pictoreal-logo.png" alt="" />
+      <div class="fc-eyebrow">the seeking is complete</div>
+      <h1 class="fc-title">धन्यवाद, साधक</h1>
+      <p class="fc-sub">You uncovered all 154 pages and gathered all 28 stars.<br>The portal opens onward —</p>
+      <div class="fc-v29">VOLUME 29 · coming next year</div>
+      <div class="fc-makers">
+        <h2>The Makers of Pictoreal · Volume 28</h2>
+        <p><b>Coordinators</b> — Mrs. A. A. Joshi · Mr. Y. A. Handge</p>
+        <p><b>Secretaries</b> — Amulya Agrawal · Prem Rahinj</p>
+        <p><b>Joint Secretaries</b> — Kshitij Dhake · Sampada Tagalpallewar</p>
+        <p><b>General Secretaries</b> — Aarya Badhe · Unnati Rathi &nbsp;·&nbsp; <b>Treasurer</b> — Kartik Tichkule</p>
+        <p><b>Design Heads</b> — Anjani Gulve · Saanvi Bhavsar · Sanvi Waghmode</p>
+        <p><b>Editorial Heads</b> — Ayan Pathan · Sanavi Kulkarni · Spondon Nath</p>
+        <p class="fc-teams">…and the Pictosocial, Marketing, Production, Pictotech, Interview,
+        Social Media, Event Management, Photography, Design & Editorial teams —
+        every hand that made this volume.</p>
+      </div>
+      <button id="fc-close">Return to the well ✦</button>
+    </div>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("on"));
+  document.getElementById("fc-close").addEventListener("click", endFinale);
+}
+
+function endFinale() {
+  finaleActive = false;
+  document.body.classList.remove("finale");
+  document.getElementById("finale-credits")?.remove();
+  if (portalGroup) scene.remove(portalGroup);
+  mergeSprites.forEach((s) => scene.remove(s));
+  if (orangeStar) scene.remove(orangeStar);
+  portalGroup = orangeStar = null; mergeSprites = [];
+  setMusicDucked(false);
+  const target = heroModel || hero;
+  if (target) target.visible = true;
+  heroPos.set(0, 0, 15); placeHero();
+  camPitch = 0.66; camYaw = 0;
+}
+
 // dev helpers (localhost only, for testing far corners / screen positions)
 if (location.hostname === "localhost") {
   window.__tp = (x, z) => { heroPos.set(x, 0, z); placeHero(); };
+  window.__collectAllStars = () => { for (const s of starDefs) state.starsCollected.add(s.id); starMeshes.forEach((m) => (m.visible = false)); saveProgress(); updateStarHud(); };
+  window.__finale = () => runFinale();
+  window.__starPos = (i) => starDefs[i];
   window.__heroScreen = () => {
     const v = hero.position.clone();
     v.y += 2;
@@ -1255,6 +1467,7 @@ function openStop(stop) {
       playFragmentChime();
       flyFragmentToJournal();
       updateHudCount();
+      maybeStartFinale(); // reading the last page (with all stars) opens the portal
     });
   if (stop.firstOfSection && stop.intro && !shownSections.has(stop.tierId)) {
     shownSections.add(stop.tierId);
@@ -1582,6 +1795,7 @@ addEventListener("resize", () => {
 
 // ---- HUD (welcome narration fires from begin() after the splash) ----
 mountHud();
+updateStarHud();
 document.getElementById("hud-photo")?.addEventListener("click", () => {
   enterPhoto();
   document.querySelector("canvas")?.focus();
@@ -1739,6 +1953,13 @@ function drawMinimap() {
     mmx.fillStyle = done ? "rgba(127,191,159,0.55)" : "#fcde5a";
     mmx.beginPath(); mmx.arc(px, py, done ? 1.6 : 2.6, 0, 7); mmx.fill();
   }
+  // uncollected stars as green dots — the treasure map
+  for (let i = 0; i < starDefs.length; i++) {
+    if (state.starsCollected.has(starDefs[i].id)) continue;
+    const [sx, sy] = toXY(starDefs[i].x, starDefs[i].z);
+    mmx.fillStyle = "#57e08a";
+    mmx.beginPath(); mmx.arc(sx, sy, 2.4, 0, 7); mmx.fill();
+  }
   // player: pulsing halo + an arrowhead you can spot at a glance
   const [hx, hy] = toXY(heroPos.x, heroPos.z);
   const pulse = 5.5 + Math.sin(performance.now() / 300) * 1.5;
@@ -1772,7 +1993,7 @@ function animate() {
   const dt = clock.getDelta();
   const t = clock.elapsedTime; // updated by getDelta()
   if (heroMixer) heroMixer.update(dt);
-  const overlay = isAnyOverlayOpen() || !started || settling || showcaseMode || verseActive || photoMode;
+  const overlay = isAnyOverlayOpen() || !started || settling || showcaseMode || verseActive || photoMode || finaleActive;
   if (overlay && pointerLocked) document.exitPointerLock();
 
   // the gate swings open once triggered — in slow, weighty motion that lasts
@@ -1919,6 +2140,23 @@ function animate() {
   eyeMat.size = eyeFlash > 0 ? 1.05 + Math.sin(t * 6) * 0.25 : 1.05;
   // the lotus breathes
   lotusGlow.intensity = 3.2 + Math.sin(t * 1.8) * 0.9;
+  // stars spin, bob, and are collected when the Sutradhar walks into them
+  for (let i = 0; i < starMeshes.length; i++) {
+    const m = starMeshes[i];
+    if (!m.visible) continue;
+    m.children[0].rotation.y = t * 1.6 + i;
+    m.position.y = groundHeightAt(starDefs[i].z, starDefs[i].x) + 2.2 + Math.sin(t * 2 + i) * 0.18;
+    if (!overlay && Math.hypot(heroPos.x - starDefs[i].x, heroPos.z - starDefs[i].z) < 2.0) {
+      m.visible = false;
+      state.starsCollected.add(starDefs[i].id);
+      saveProgress();
+      updateStarHud();
+      playFragmentChime();
+      const el = document.getElementById("hud-stars");
+      if (el) { el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+      maybeStartFinale();
+    }
+  }
   // the emblem grows brighter as the seeker uncovers the magazine
   const scProgress = getSurfacedCount() / getTotalFragments();
   emblemLight.intensity = 6 + scProgress * 9 + Math.sin(t * 2.2) * 0.5;
@@ -1988,7 +2226,9 @@ function animate() {
   }
   motes.geometry.attributes.position.needsUpdate = true;
 
-  if (showcaseMode) {
+  if (finaleActive) {
+    updateFinale(t); // the portal finale owns the camera + hero
+  } else if (showcaseMode) {
     runShowcaseCamera(t); // the stage flythrough owns the camera
   } else if (verseActive) {
     // cinematic gate shot: level with the seeker so the darkness shows

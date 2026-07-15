@@ -1,4 +1,4 @@
-import { state } from "../state.js";
+import { state, saveProgress } from "../state.js";
 import { magazine } from "../content/magazine.config.js";
 
 export function getTotalFragments() {
@@ -17,6 +17,7 @@ export function surfaceFragment(fragmentId) {
   const alreadySurfaced = state.fragmentsSurfaced.has(fragmentId);
   if (!alreadySurfaced) {
     state.fragmentsSurfaced.add(fragmentId);
+    saveProgress();
   }
   return {
     alreadySurfaced,
