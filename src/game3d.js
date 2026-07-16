@@ -1365,6 +1365,7 @@ const GATHER = new THREE.Vector3(0, 6.8, 1.5); // where the 28 gather + become o
 const PUPIL = new THREE.Vector3(0, 6.8, -0.8); // deep in the eye — where the one star flies
 let starsGoalHintShown = false, pagesGoalHintShown = false; // the "you're halfway to the portal" nudges
 let portalGoalHintShown = false; // the one-time "here is what opens the way" reveal, dropped mid-play
+let pendingPostRead = false; // a page just surfaced — check the finale/nudges once the reader CLOSES, not while still open
 
 function maybeStartFinale() {
   if (finaleDone || finaleActive) return;
@@ -1819,16 +1820,9 @@ function openStop(stop) {
       playFragmentChime();
       flyFragmentToJournal();
       updateHudCount();
-      maybeStartFinale(); // 28 stars + 28 pages (of the 154) opens the portal
-      if (!pagesGoalHintShown && !finaleActive && getSurfacedCount() >= PORTAL_PAGES && state.starsCollected.size < STAR_COUNT) {
-        pagesGoalHintShown = true;
-        narrate([SECRETS.pagesFirst]);
-      } else if (!portalGoalHintShown && !finaleActive && !finaleDone && getSurfacedCount() >= 3) {
-        // dropped once, a few pages in — the twin-goal reveal, as a passing
-        // remark mid-exploration rather than a four-line lecture at the start
-        portalGoalHintShown = true;
-        narrate(magazine.sutradhar.portalGoal);
-      }
+      // the finale + goal-hint narration must never play OVER the open page —
+      // just flag it here; checkComplete() fires it once the reader actually closes
+      pendingPostRead = true;
     });
   if (stop.firstOfSection && stop.intro && !shownSections.has(stop.tierId)) {
     shownSections.add(stop.tierId);
@@ -2358,7 +2352,26 @@ function drawMinimap() {
 let wasReaderOpen = false;
 let finished = false;
 function checkComplete() {
-  if (!isReaderOpen() && wasReaderOpen && isJourneyComplete() && !finished) {
+  const justClosed = !isReaderOpen() && wasReaderOpen;
+  // the finale + goal-hint narration were queued while the page was open —
+  // fire them only now that the reader has actually closed, with a short
+  // breath so they never talk over the page (or each other)
+  if (justClosed && pendingPostRead) {
+    pendingPostRead = false;
+    setTimeout(() => {
+      maybeStartFinale(); // 28 stars + 28 pages (of the 154) opens the portal
+      if (!pagesGoalHintShown && !finaleActive && getSurfacedCount() >= PORTAL_PAGES && state.starsCollected.size < STAR_COUNT) {
+        pagesGoalHintShown = true;
+        narrate([SECRETS.pagesFirst]);
+      } else if (!portalGoalHintShown && !finaleActive && !finaleDone && getSurfacedCount() >= 3) {
+        // dropped once, a few pages in — the twin-goal reveal, as a passing
+        // remark mid-exploration rather than a four-line lecture at the start
+        portalGoalHintShown = true;
+        narrate(magazine.sutradhar.portalGoal);
+      }
+    }, 400);
+  }
+  if (justClosed && isJourneyComplete() && !finished) {
     finished = true;
     setTimeout(() => narrate([magazine.sutradhar.closingComplete], () => openJournal({ animateThread: true })), 400);
   }
