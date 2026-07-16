@@ -170,11 +170,12 @@ const ENTRY_Y = 11; // surface height; the ramp descends to the cave floor (y=0)
 const RAMP_BOT = HUBR; // the ramp meets the hall floor exactly at the hall edge
 const GY = ENTRY_Y;
 function groundHeightAt(z, x = 0) {
-  if (z >= GATE_Z) return ENTRY_Y;
+  // the raised ramp/terrace exists ONLY inside the entrance corridor and the
+  // plaza beyond the gate; chambers that happen to share these z values (the
+  // outer ring reaches z a little past GATE_Z near its widest points) are cave
+  // floor — without the walkable check those chambers "floated" on the terrace
+  if (z >= GATE_Z) return Math.abs(x) > GAP / 2 + 1 && isWalkable(cave, x, z, 0) ? 0 : ENTRY_Y;
   if (z <= RAMP_BOT) return 0;
-  // the raised ramp exists ONLY inside the entrance corridor; chambers that
-  // happen to share these z values (south almond/outer ring) are cave floor —
-  // without the x check the hero "flew" on an invisible ramp out there
   if (Math.abs(x) > GAP / 2 + 1) return 0;
   return ENTRY_Y * (z - RAMP_BOT) / (GATE_Z - RAMP_BOT);
 }
@@ -1468,6 +1469,7 @@ if (location.hostname === "localhost") {
   window.__collectAllStars = () => { for (const s of starDefs) state.starsCollected.add(s.id); starMeshes.forEach((m) => (m.visible = false)); saveProgress(); updateStarHud(); };
   window.__finale = () => runFinale();
   window.__starPos = (i) => starDefs[i];
+  window.__heroPos = () => ({ x: heroPos.x, z: heroPos.z });
   window.__heroScreen = () => {
     const v = hero.position.clone();
     v.y += 2;
@@ -2073,8 +2075,12 @@ function animate() {
       moving = sp > 0.03;
       if (moving) heroFacing = Math.atan2(heroVel.x, heroVel.z);
       // on the surface terrace roam freely; everywhere below (hall, tunnels AND
-      // the entrance corridor) use analytic collision so nothing yanks you around
-      if (heroPos.z > GATE_Z - 2) {
+      // the entrance corridor) use analytic collision so nothing yanks you around.
+      // the outer ring's widest chambers poke past GATE_Z too — without this
+      // check standing in one snapped you onto the terrace's x-clamp and gate
+      // logic, which yanked you back toward the entrance from way out there
+      const inOuterChamber = Math.abs(heroPos.x) > GAP / 2 + 1 && isWalkable(cave, heroPos.x, heroPos.z, 0);
+      if (heroPos.z > GATE_Z - 2 && !inOuterChamber) {
         heroPos.x = Math.max(-24, Math.min(24, heroPos.x + heroVel.x));
         // through the open gate the corridor continues down — don't wall it
         // off (this used to clamp at GATE_Z-1 forever, so after climbing back
