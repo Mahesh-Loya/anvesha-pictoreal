@@ -46,6 +46,7 @@ function collectLines() {
     ...(s.welcome || []),
     ...(s.descend || []),
     ...(s.arrive || []),
+    ...(s.portalGoal || []),
     s.closingComplete,
     s.closingIncomplete,
     ...(s.secrets ? Object.values(s.secrets) : []),

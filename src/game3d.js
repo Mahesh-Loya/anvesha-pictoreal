@@ -516,6 +516,47 @@ const emblemLight = new THREE.PointLight(0xffe0a4, 6, 64, 2);
 emblemLight.position.set(0, 6.8, 0);
 scene.add(emblemLight);
 
+// ---- the Eye of the crest OPENS: for the finale, two almond lids matching the
+// logo's OWN drawn eye close over the mandala iris, crack with light, then part
+// vertically — so it reads as the drawn eye waking, not plates over the badge.
+// Coloured to the crest so a shut eye looks natural; HIDDEN in normal play. ----
+const EYE_CY = 0.42, EYE_HW = 1.92, EYE_HH = 0.92; // the logo's eye, in disc-local units
+const eyelidMat = new THREE.MeshBasicMaterial({ color: 0x11302a, toneMapped: false });
+function makeLid(top) {
+  const s = new THREE.Shape();
+  const H = top ? EYE_HH : -EYE_HH;
+  s.moveTo(-EYE_HW, 0);
+  s.quadraticCurveTo(0, H * 1.95, EYE_HW, 0); // a pointed almond half, matching the eye
+  s.lineTo(-EYE_HW, 0);
+  const geo = new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: false });
+  const pivot = new THREE.Group();
+  pivot.position.set(0, EYE_CY + (top ? EYE_HH : -EYE_HH), 0.05); // hinge at the eye's top / bottom
+  const mesh = new THREE.Mesh(geo, eyelidMat);
+  mesh.position.y = -(top ? EYE_HH : -EYE_HH); // the lash edge sits on the eye's midline
+  pivot.add(mesh);
+  pivot.visible = false; // only shown during the finale — no lids in normal play
+  emblem.add(pivot);
+  return pivot;
+}
+const lidTop = makeLid(true);
+const lidBot = makeLid(false);
+// a gold seam of light that seeps along the shut lash line before the eye opens
+const crackTex = (() => {
+  const cv = document.createElement("canvas"); cv.width = 128; cv.height = 16;
+  const g = cv.getContext("2d").createLinearGradient(0, 0, 128, 0);
+  g.addColorStop(0, "rgba(255,210,90,0)"); g.addColorStop(0.5, "rgba(255,236,160,1)"); g.addColorStop(1, "rgba(255,210,90,0)");
+  const c = cv.getContext("2d"); c.fillStyle = g; c.fillRect(0, 0, 128, 16);
+  return new THREE.CanvasTexture(cv);
+})();
+const eyeCrack = new THREE.Mesh(
+  new THREE.PlaneGeometry(EYE_HW * 2.05, 0.55),
+  new THREE.MeshBasicMaterial({ map: crackTex, color: 0xffe8a0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false })
+);
+eyeCrack.position.set(0, EYE_CY, 0.09);
+eyeCrack.visible = false;
+emblem.add(eyeCrack);
+emblem.userData.lidTop = lidTop; emblem.userData.lidBot = lidBot; emblem.userData.crack = eyeCrack;
+
 // ---- route doorways with natural carved-wood signs + wooden direction arrows ----
 const compassName = (ang) => {
   const deg = (ang * 180 / Math.PI + 360) % 360; // ang = atan2(z,x): -Z north, +Z south
@@ -1229,8 +1270,10 @@ function handlePoke() {
 
 // ---- 28 hidden stars: a treasure hunt across the well. The Sutradhar
 // collects one by walking into it; they show as green dots on the minimap.
-// Collect all 28 AND read all 154 pages to open the portal to Volume 29. ----
+// Collect all 28 AND read 28 pages (of the 154) to open the portal to
+// Volume 29 — a twin, equal ask, not "read the whole magazine". ----
 const STAR_COUNT = 28;
+const PORTAL_PAGES = 28;
 const starDefs = []; // { x, z, id }
 {
   // a spot only counts if the Sutradhar can actually stand on it (clear of
@@ -1316,48 +1359,180 @@ function updateStarHud() {
 let finaleActive = false;
 let finaleDone = false;
 let finaleStart = 0;
-let portalGroup = null, portalDisc = null, mergeSprites = [], orangeStar = null, creditsShown = false;
+let portalGroup = null, portalDisc = null, portalRing = null, mergeSprites = [], orangeStar = null, creditsShown = false;
+let sparks = null, finaleFired = null, fxRing = null, fxRingStart = -1, fxRingColor = [1, 0.82, 0.34];
+const GATHER = new THREE.Vector3(0, 6.8, 1.5); // where the 28 gather + become one, just in front of the pupil
+const PUPIL = new THREE.Vector3(0, 6.8, -0.8); // deep in the eye — where the one star flies
+let starsGoalHintShown = false, pagesGoalHintShown = false; // the "you're halfway to the portal" nudges
+let portalGoalHintShown = false; // the one-time "here is what opens the way" reveal, dropped mid-play
 
 function maybeStartFinale() {
   if (finaleDone || finaleActive) return;
-  if (state.starsCollected.size >= STAR_COUNT && isJourneyComplete()) runFinale();
+  if (state.starsCollected.size >= STAR_COUNT && getSurfacedCount() >= PORTAL_PAGES) runFinale();
+}
+
+// ---- the spark field: ONE pooled Points system (ring buffer) drives every
+// particle in the finale — lash sparklers, celebration volleys, the phuljhadi
+// fountain, the ember underlay, comet trails and impact bursts. Additive, so a
+// particle "fades" by dimming its colour toward black. ----
+function makeSparks(max) {
+  const pos = new Float32Array(max * 3);
+  const col = new Float32Array(max * 3);
+  const vel = new Float32Array(max * 3);
+  const base = new Float32Array(max * 3);
+  const life = new Float32Array(max);
+  const maxLife = new Float32Array(max);
+  const grav = new Float32Array(max);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  const mat = new THREE.PointsMaterial({ size: 0.55, map: haloTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true });
+  const pts = new THREE.Points(geo, mat);
+  pts.frustumCulled = false;
+  scene.add(pts);
+  let cur = 0;
+  function spawn(x, y, z, vx, vy, vz, c, ls, gr, size) {
+    const i = cur; cur = (cur + 1) % max;
+    pos[i * 3] = x; pos[i * 3 + 1] = y; pos[i * 3 + 2] = z;
+    vel[i * 3] = vx; vel[i * 3 + 1] = vy; vel[i * 3 + 2] = vz;
+    base[i * 3] = c[0]; base[i * 3 + 1] = c[1]; base[i * 3 + 2] = c[2];
+    col[i * 3] = c[0]; col[i * 3 + 1] = c[1]; col[i * 3 + 2] = c[2];
+    life[i] = ls; maxLife[i] = ls; grav[i] = gr;
+  }
+  function burst(x, y, z, count, speed, c, ls, gr) {
+    for (let k = 0; k < count; k++) {
+      const th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+      const s = speed * (0.35 + Math.random() * 0.65);
+      const white = Math.random() < 0.12 ? [1, 0.95, 0.8] : c; // sparkle glints
+      spawn(x, y, z, Math.sin(ph) * Math.cos(th) * s, Math.cos(ph) * s, Math.sin(ph) * Math.sin(th) * s, white, ls * (0.7 + Math.random() * 0.6), gr);
+    }
+  }
+  function update(dt) {
+    for (let i = 0; i < max; i++) {
+      if (life[i] <= 0) continue;
+      life[i] -= dt;
+      const f = Math.max(0, life[i] / maxLife[i]);
+      vel[i * 3 + 1] += grav[i] * dt;
+      pos[i * 3] += vel[i * 3] * dt; pos[i * 3 + 1] += vel[i * 3 + 1] * dt; pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
+      col[i * 3] = base[i * 3] * f; col[i * 3 + 1] = base[i * 3 + 1] * f; col[i * 3 + 2] = base[i * 3 + 2] * f;
+    }
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.color.needsUpdate = true;
+  }
+  function dispose() { scene.remove(pts); geo.dispose(); mat.dispose(); }
+  return { spawn, burst, update, dispose };
+}
+const hx = (h) => [((h >> 16) & 255) / 255, ((h >> 8) & 255) / 255, (h & 255) / 255];
+// warm-dominant festival palette (one green burst max, everything else gold/saffron/rose)
+const VOLLEY_HUES = [0xffd257, 0xff8a2a, 0xfff3c0, 0xff5a7a, 0xffd257, 0x9be27a];
+
+// a proper radiant star: soft halo + four long glints + four short + white core.
+// drawn once as a canvas sprite (billboards, so it always faces the seeker).
+const starTex = (() => {
+  const S = 256, cv = document.createElement("canvas"); cv.width = cv.height = S;
+  const c = cv.getContext("2d");
+  c.translate(S / 2, S / 2);
+  const halo = c.createRadialGradient(0, 0, 0, 0, 0, S / 2);
+  halo.addColorStop(0, "rgba(255,224,150,0.85)");
+  halo.addColorStop(0.22, "rgba(255,150,60,0.42)");
+  halo.addColorStop(1, "rgba(255,120,40,0)");
+  c.fillStyle = halo; c.beginPath(); c.arc(0, 0, S / 2, 0, 7); c.fill();
+  c.globalCompositeOperation = "lighter";
+  const ray = (ang, len, wid, col) => {
+    c.save(); c.rotate(ang);
+    const g = c.createLinearGradient(0, 0, 0, -len);
+    g.addColorStop(0, col); g.addColorStop(1, "rgba(255,190,90,0)");
+    c.fillStyle = g; c.beginPath(); c.moveTo(-wid, 0); c.lineTo(0, -len); c.lineTo(wid, 0); c.closePath(); c.fill();
+    c.restore();
+  };
+  for (let i = 0; i < 4; i++) ray(i * Math.PI / 2, 122, 11, "rgba(255,244,205,0.95)"); // long glints
+  for (let i = 0; i < 4; i++) ray(Math.PI / 4 + i * Math.PI / 2, 66, 6, "rgba(255,205,120,0.7)"); // short
+  const core = c.createRadialGradient(0, 0, 0, 0, 0, 30);
+  core.addColorStop(0, "#fff7e6"); core.addColorStop(0.5, "rgba(255,214,140,0.9)"); core.addColorStop(1, "rgba(255,190,110,0)");
+  c.fillStyle = core; c.beginPath(); c.arc(0, 0, 30, 0, 7); c.fill();
+  return new THREE.CanvasTexture(cv);
+})();
+function makeOrangeStar() {
+  const g = new THREE.Group();
+  const rays = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, color: 0xffa84a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  rays.scale.setScalar(5.4);
+  g.add(rays);
+  const spin = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, color: 0xffd58a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.75 }));
+  spin.scale.setScalar(3.9); spin.material.rotation = Math.PI / 4; // a second star, offset — twinkle
+  g.add(spin);
+  const core = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xfff2d8, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  core.scale.setScalar(2.1);
+  g.add(core);
+  g.userData.rays = rays; g.userData.spin = spin;
+  return g;
 }
 
 function runFinale() {
   finaleActive = true;
   finaleDone = true;
   creditsShown = false;
+  state.portalOpened = true; // the eye now remembers — replayable from the dais
+  saveProgress();
   document.body.classList.add("finale"); // hide HUD for the cinematic
   setMusicDucked(true);
   playDescentRumble();
   heroPos.set(0, 0, 15);
-  heroFacing = Math.PI; // face the portal / hub centre
+  heroFacing = Math.PI; // face the eye / hub centre
   placeHero();
   const target = heroModel || hero;
   target.visible = true;
 
-  // the purple portal, upright at the hub, facing the seeker
+  // hold the emblem still + start the lids OPEN (they close, then re-open)
+  emblem.rotation.set(0, 0, 0);
+  emblem.position.set(0, 6.8, 0);
+  emblem.userData.lidTop.visible = true; emblem.userData.lidBot.visible = true;
+  emblem.userData.crack.visible = true;
+  emblem.userData.lidTop.scale.y = 0.04;
+  emblem.userData.lidBot.scale.y = 0.04;
+  emblem.userData.crack.material.opacity = 0;
+
+  // the portal = the dilated PUPIL, born at the emblem exactly (no seam). Gold
+  // rim (the eye's own colour, grown) around a deep-indigo cosmos — never purple.
   portalGroup = new THREE.Group();
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(4.2, 0.5, 16, 48),
-    new THREE.MeshBasicMaterial({ color: 0x9b5cff, toneMapped: false })
+  portalRing = new THREE.Mesh(
+    new THREE.TorusGeometry(4.8, 0.4, 16, 64),
+    new THREE.MeshBasicMaterial({ color: 0xffb020, toneMapped: false })
   );
-  portalGroup.add(ring);
+  portalGroup.add(portalRing);
+  const cosmosTex = (() => {
+    const cv = document.createElement("canvas"); cv.width = cv.height = 128;
+    const c = cv.getContext("2d");
+    const g = c.createRadialGradient(64, 64, 4, 64, 64, 64);
+    g.addColorStop(0, "#122a5a"); g.addColorStop(0.7, "#0e1a3a"); g.addColorStop(1, "#070d20");
+    c.fillStyle = g; c.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 80; i++) { c.fillStyle = `rgba(255,220,150,${0.2 + Math.random() * 0.6})`; c.beginPath(); c.arc(Math.random() * 128, Math.random() * 128, Math.random() * 1.1, 0, 7); c.fill(); }
+    return new THREE.CanvasTexture(cv);
+  })();
   portalDisc = new THREE.Mesh(
-    new THREE.CircleGeometry(4.0, 48),
-    new THREE.MeshBasicMaterial({ color: 0x3a1178, toneMapped: false, transparent: true, opacity: 0.92 })
+    new THREE.CircleGeometry(4.6, 56),
+    new THREE.MeshBasicMaterial({ map: cosmosTex, toneMapped: false, transparent: true, opacity: 0.98 })
   );
-  portalDisc.position.z = -0.1;
+  portalDisc.position.z = -0.05;
+  portalDisc.renderOrder = 2;
   portalGroup.add(portalDisc);
-  const pglow = new THREE.PointLight(0x9b5cff, 0, 60, 2);
+  const pglow = new THREE.PointLight(0xff9a3a, 0, 60, 2);
   pglow.position.z = 1;
   portalGroup.add(pglow);
   portalGroup.userData.glow = pglow;
-  portalGroup.position.set(0, 6.5, 0);
+  portalGroup.position.set(emblem.position.x, emblem.position.y, emblem.position.z + 0.25); // in FRONT of the crest, so the cosmos shows
   portalGroup.scale.setScalar(0.001);
   scene.add(portalGroup);
 
-  // 28 star motes ringed around the hall, to converge into one
+  // an expanding shock-ring, reused for both the merge-birth and the fly-in impact
+  fxRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1, 0.14, 8, 40),
+    new THREE.MeshBasicMaterial({ color: 0xffe8a0, toneMapped: false, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  fxRing.position.copy(GATHER);
+  scene.add(fxRing);
+  fxRingStart = -1;
+
+  // the 28 gathered stars, ringed wide around the well, to stream in and become one
   mergeSprites = [];
   for (let i = 0; i < STAR_COUNT; i++) {
     const a = (i / STAR_COUNT) * Math.PI * 2;
@@ -1365,58 +1540,178 @@ function runFinale() {
     sp.scale.setScalar(2.2);
     sp.position.set(Math.cos(a) * 22, 4 + Math.sin(a * 3) * 3, Math.sin(a) * 22);
     sp.userData.from = sp.position.clone();
+    sp.userData.ang = a;
     scene.add(sp);
     mergeSprites.push(sp);
   }
-  // the orange star they become
-  orangeStar = new THREE.Mesh(new THREE.OctahedronGeometry(0.6, 0), new THREE.MeshBasicMaterial({ color: 0xff8a2a, toneMapped: false }));
-  const oh = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xff9a3a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-  oh.scale.setScalar(5);
-  orangeStar.add(oh);
-  orangeStar.position.set(0, 6.5, 0);
+  // the single radiant star they become — the one warm heartbeat of the scene
+  orangeStar = makeOrangeStar();
+  orangeStar.position.copy(GATHER);
   orangeStar.scale.setScalar(0.001);
   scene.add(orangeStar);
 
+  sparks = makeSparks(1500);
+  finaleFired = new Set();
   finaleStart = clock.getElapsedTime();
+  lastFinaleT = finaleStart;
 }
 
-const ease = (u) => u * u * (3 - 2 * u);
+const ease = (u) => u * u * (3 - 2 * u);            // smoothstep
+const easeIn = (u) => u * u * u;
+const easeOut = (u) => 1 - Math.pow(1 - u, 3);
+const easeOutBack = (u) => { const c = 1.9; const p = u - 1; return 1 + (c + 1) * p * p * p + c * p * p; };
+const clamp01 = (u) => Math.max(0, Math.min(1, u));
+
+// THE WAKING EYE — the mandala eye shuts, cracks with light, opens; its pupil
+// dilates into a portal; the sky sheds warm crackers; the 28 stars spiral in,
+// orbit as one, merge into a single orange star that flies into the eye; the
+// Sutradhar follows; then the credits glow.  Timeline is T = seconds since start.
+let lastFinaleT = 0;
+function fireVolley(idx) {
+  const hue = hx(VOLLEY_HUES[idx % VOLLEY_HUES.length]);
+  const ang = (idx * 1.3) % (Math.PI * 2);
+  const r = 3.5 + Math.random() * 3;
+  sparks.burst(Math.cos(ang) * r, 8.5 + Math.random() * 3, Math.sin(ang) * r + 0.5, 120, 8, hue, 1.5, -6);
+  playDescentRumble();
+}
 function updateFinale(t) {
   const T = t - finaleStart;
-  // P0 portal opens (0–2s); P1 stars converge (0.6–3s); P2 orange grows
-  // (3–4s); P3 star + hero enter the portal (4–6s); P4 credits (6s+)
-  const pOpen = ease(Math.min(1, T / 2));
-  portalGroup.scale.setScalar(0.001 + pOpen * 1);
-  portalGroup.userData.glow.intensity = pOpen * 7 + Math.sin(t * 3) * 0.6;
-  portalGroup.rotation.z = t * 0.4;
-  portalDisc.material.opacity = 0.6 + Math.sin(t * 5) * 0.15;
+  const dt = Math.min(0.05, Math.max(0.001, t - lastFinaleT));
+  lastFinaleT = t;
+  const lidTop = emblem.userData.lidTop, lidBot = emblem.userData.lidBot, crack = emblem.userData.crack;
 
-  const conv = ease(Math.min(1, Math.max(0, (T - 0.6) / 2.4)));
-  for (const sp of mergeSprites) {
-    sp.position.lerpVectors(sp.userData.from, portalGroup.position, conv);
-    sp.material.opacity = 1 - ease(Math.min(1, Math.max(0, (T - 2.6) / 0.6)));
+  // -- P0 hush + the eye CLOSES (0.0–0.9s) --
+  const shut = ease(clamp01(T / 0.9));
+  // -- P2 the eye OPENS again (1.3–3.0s) with a small waking flutter --
+  const openU = clamp01((T - 1.3) / 1.7);
+  const flutter = openU > 0 && openU < 1 ? Math.sin(openU * Math.PI * 3) * 0.06 * (1 - openU) : 0;
+  const lidScale = T < 1.3 ? 0.04 + shut * 0.96 : Math.max(0.04, (1 - easeOutBack(openU)) * 0.96 + 0.04 + flutter);
+  lidTop.scale.y = lidScale; lidBot.scale.y = lidScale;
+  // -- P1 crack of light along the shut lash line (0.9–1.5s) --
+  crack.material.opacity = T > 0.9 && T < 1.6 ? Math.sin(clamp01((T - 0.9) / 0.7) * Math.PI) * 0.9 : (T >= 1.6 ? 0 : crack.material.opacity);
+  // emblem light: dims for the hush, BLAZES as the eye opens + crackers, then
+  // eases back down so the deep cosmos reads dark and the orange star pops
+  if (T < 1.3) emblemLight.intensity = 6 - shut * 3.6;
+  else if (T < 4.6) emblemLight.intensity = 2.4 + easeOut(openU) * 9;
+  else emblemLight.intensity = 11 - easeOut(clamp01((T - 4.6) / 1.6)) * 7.5; // 11 -> ~3.5
+  // the crest dissolves into the cosmos as the pupil dilates — the eye BECOMES the doorway
+  frontDisc.material.opacity = 1 - easeOut(clamp01((T - 3.2) / 1.2));
+
+  // lash sparklers shed as the lids part (1.3–3.0s)
+  if (T > 1.3 && T < 3.0) {
+    for (let k = 0; k < 3; k++) {
+      const sx = (Math.random() - 0.5) * 4.4;
+      sparks.spawn(sx, 6.8 + (Math.random() - 0.5) * 0.5, 0.3, (Math.random() - 0.5) * 2, 1 + Math.random() * 2, Math.random() * 1.5, hx(0xffd257), 0.8, -5);
+    }
   }
-  const grow = ease(Math.min(1, Math.max(0, (T - 2.9) / 1.0)));
-  orangeStar.scale.setScalar(0.001 + grow * 2.2);
-  orangeStar.rotation.y = t * 2;
+  // ember underlay — sparse, rising, warm, alive the whole scene
+  if (T > 0.6 && T < 9.5 && Math.random() < 0.6) {
+    sparks.spawn((Math.random() - 0.5) * 26, 1 + Math.random() * 2, (Math.random() - 0.5) * 26, (Math.random() - 0.5) * 0.4, 0.3 + Math.random() * 0.5, (Math.random() - 0.5) * 0.4, hx(0xffb060), 2.6, 0.4);
+  }
+  // celebration volleys (staggered, one warm hue each) + phuljhadi fountain
+  const volleyTimes = [2.8, 3.0, 3.25, 3.55, 3.95, 4.4];
+  volleyTimes.forEach((vt, i) => { if (T >= vt && !finaleFired.has("v" + i)) { finaleFired.add("v" + i); fireVolley(i); } });
+  if (T > 2.8 && T < 7 && Math.random() < 0.8) { // fountain showering down the eye's face
+    sparks.spawn((Math.random() - 0.5) * 2, 6.8 + Math.random() * 0.6, 0.4, (Math.random() - 0.5) * 1.5, 1.5 + Math.random(), Math.random() * 0.6, hx(0xffcf7a), 1.2, -7);
+  }
 
-  if (T > 4) {
-    const enter = ease(Math.min(1, (T - 4) / 2));
-    // the orange star sinks into the portal disc; the hero strides after it
-    orangeStar.position.lerpVectors(new THREE.Vector3(0, 6.5, 0), portalGroup.position.clone().setZ(-2), enter);
-    orangeStar.scale.setScalar(2.2 * (1 - enter) + 0.2);
-    heroPos.z = 15 - enter * 15; // walk to the hub centre, into the portal
+  // -- P3 the pupil DILATES into the portal (3.2–4.4s), born of the eye --
+  const pop = easeOut(clamp01((T - 3.2) / 1.2));
+  portalGroup.scale.setScalar(0.001 + pop * 1);
+  portalGroup.userData.glow.intensity = pop * 6 + Math.sin(t * 3) * 0.5;
+  portalGroup.rotation.z = t * 0.08; // barely turning — reverent
+  portalDisc.material.opacity = 0.9 + Math.sin(t * 4) * 0.08;
+
+  // -- P4 the 28 CONVERGE: spiral in (4.3–6.0), orbit as one (6.0–6.6) --
+  for (const sp of mergeSprites) {
+    const cu = clamp01((T - 4.3) / 1.7);
+    const straight = new THREE.Vector3().lerpVectors(sp.userData.from, GATHER, easeIn(cu));
+    const ang = sp.userData.ang + (T - 4.3) * 3.0;
+    let swirlR;
+    if (T < 6.0) swirlR = 3.5 * (1 - easeIn(cu));
+    else if (T < 6.6) swirlR = 1.6;                       // the held communal orbit
+    else swirlR = 1.6 * (1 - clamp01((T - 6.6) / 0.3));   // collapse into one
+    sp.position.set(straight.x + Math.cos(ang) * swirlR, straight.y + Math.sin(ang) * swirlR, straight.z);
+    sp.material.opacity = T < 6.6 ? 1 : 1 - clamp01((T - 6.6) / 0.3);
+    // a short comet tail as they stream in
+    if (T > 4.3 && T < 6.0 && Math.random() < 0.5) sparks.spawn(sp.position.x, sp.position.y, sp.position.z, 0, 0, 0, hx(0xffe08a), 0.35, 0);
+  }
+
+  // -- P5 they become ONE orange star (6.4–7.0): flash + shock-ring birth --
+  if (T >= 6.6 && !finaleFired.has("merge")) {
+    finaleFired.add("merge");
+    sparks.burst(GATHER.x, GATHER.y, GATHER.z, 90, 6, hx(0xfff3c0), 0.7, -2);
+    fxRing.position.copy(GATHER); fxRingStart = t; fxRingColor = hx(0xffe8a0);
+  }
+  if (T > 6.6) {
+    const grow = easeOutBack(clamp01((T - 6.6) / 0.7));
+    orangeStar.scale.setScalar(0.001 + grow * 1.2);
+  }
+  // twinkle: the two star sprites counter-rotate and the whole thing breathes
+  orangeStar.userData.rays.material.rotation = t * 0.5;
+  orangeStar.userData.spin.material.rotation = Math.PI / 4 - t * 0.8;
+
+  // -- P6 the star FLIES into the eye (7.0–8.3): anticipation, then suck-in --
+  if (T > 7.0 && T < 8.3) {
+    const fu = clamp01((T - 7.0) / 1.3);
+    if (fu < 0.25) {
+      // anticipation: pull back + up
+      const a = fu / 0.25;
+      orangeStar.position.set(GATHER.x, GATHER.y + a * 0.8, GATHER.z + a * 1.0);
+      orangeStar.scale.setScalar(1.2 + a * 0.18); // a breath in before the plunge
+    } else {
+      const s = easeIn((fu - 0.25) / 0.75);
+      orangeStar.position.lerpVectors(new THREE.Vector3(GATHER.x, GATHER.y + 0.8, GATHER.z + 1.0), PUPIL, s);
+      orangeStar.scale.setScalar(1.38 * (1 - s) + 0.1);
+      if (Math.random() < 0.8) sparks.spawn(orangeStar.position.x, orangeStar.position.y, orangeStar.position.z, 0, 0, 0, hx(0xffb060), 0.4, 0); // comet trail
+    }
+  }
+  if (T >= 8.2 && !finaleFired.has("impact")) {
+    finaleFired.add("impact");
+    orangeStar.visible = false;
+    portalGroup.userData.glow.intensity = 10;
+    sparks.burst(PUPIL.x, PUPIL.y, PUPIL.z + 0.5, 70, 7, hx(0xffd257), 0.9, -5); // answering crackers
+    fxRing.position.copy(emblem.position); fxRingStart = t; fxRingColor = hx(0xfff3c0);
+    [0, 0.15, 0.3].forEach((d, i) => finaleFired.delete("av" + i)); // arm answering volleys
+    [7.0].forEach(() => {}); // (no-op)
+  }
+  // answering volley shells after impact
+  [8.25, 8.45, 8.7].forEach((vt, i) => { if (T >= vt && !finaleFired.has("av" + i)) { finaleFired.add("av" + i); fireVolley(i + 2); } });
+
+  // shock-ring animation (used by both birth and impact)
+  if (fxRingStart >= 0) {
+    const ru = clamp01((t - fxRingStart) / 0.6);
+    fxRing.scale.setScalar(0.2 + ru * 6);
+    fxRing.material.color.setRGB(fxRingColor[0], fxRingColor[1], fxRingColor[2]);
+    fxRing.material.opacity = (1 - ru) * 0.8;
+    if (ru >= 1) fxRingStart = -1;
+  }
+
+  // -- P7 the Sutradhar follows through the eye (8.3–9.5) --
+  if (T > 8.3) {
+    const enter = ease(clamp01((T - 8.3) / 1.2));
+    heroPos.z = 15 - enter * 15;
     placeHero();
     heroFacing = Math.PI;
-    if (heroModel || hero) (heroModel || hero).visible = enter < 0.9;
+    const h = heroModel || hero;
+    if (h) h.visible = enter < 0.92;
+    if (enter >= 0.92 && !finaleFired.has("dissolve")) {
+      finaleFired.add("dissolve");
+      for (let k = 0; k < 60; k++) sparks.spawn((Math.random() - 0.5) * 1.5, 1 + Math.random() * 3, 0.5, (Math.random() - 0.5) * 1.2, 1.5 + Math.random() * 2, -0.5 - Math.random(), hx(0xffd27a), 1.6, 0.2);
+    }
   }
 
-  if (T > 6 && !creditsShown) { creditsShown = true; showFinaleCredits(); }
+  // -- P8 credits (9.6s+) --
+  if (T > 9.6 && !creditsShown) { creditsShown = true; showFinaleCredits(); }
 
-  // camera: hold on the portal, push in as the star enters
-  const camZ = 34 - ease(Math.min(1, Math.max(0, (T - 4) / 2))) * 16;
-  camera.position.lerp(new THREE.Vector3(0, 7.5, camZ), 0.04);
-  camera.lookAt(0, 6.5, 0);
+  sparks.update(dt);
+
+  // camera: pull back for the eye, then push in toward the pupil as the star flies
+  let camPos, look = emblem.position;
+  if (T < 7) camPos = new THREE.Vector3(0, 8.0, 33);
+  else camPos = new THREE.Vector3(0, 7.4, 33 - ease(clamp01((T - 7.5) / 2)) * 16);
+  camera.position.lerp(camPos, 0.05);
+  camera.lookAt(look.x, look.y, look.z);
 }
 
 function showFinaleCredits() {
@@ -1427,7 +1722,7 @@ function showFinaleCredits() {
       <img class="fc-logo" src="pictoreal-logo.png" alt="" />
       <div class="fc-eyebrow">the seeking is complete</div>
       <h1 class="fc-title">धन्यवाद, साधक</h1>
-      <p class="fc-sub">You uncovered all 154 pages and gathered all 28 stars.<br>The portal opens onward —</p>
+      <p class="fc-sub">You gathered all 28 stars and let ${getSurfacedCount()} of Volume 28's pages speak.<br>The portal opens onward —</p>
       <div class="fc-v29">VOLUME 29 · coming next year</div>
       <div class="fc-makers">
         <h2>The Makers of Pictoreal · Volume 28</h2>
@@ -1455,7 +1750,15 @@ function endFinale() {
   if (portalGroup) scene.remove(portalGroup);
   mergeSprites.forEach((s) => scene.remove(s));
   if (orangeStar) scene.remove(orangeStar);
-  portalGroup = orangeStar = null; mergeSprites = [];
+  if (fxRing) scene.remove(fxRing);
+  if (sparks) sparks.dispose();
+  portalGroup = orangeStar = fxRing = sparks = null; mergeSprites = []; fxRingStart = -1;
+  // the eye returns to its resting open state — lids fully HIDDEN (no bars in play)
+  emblem.userData.lidTop.visible = false; emblem.userData.lidBot.visible = false;
+  emblem.userData.crack.visible = false;
+  emblem.userData.crack.material.opacity = 0;
+  frontDisc.material.opacity = 1; // restore the crest face
+  emblemLight.intensity = 6;
   setMusicDucked(false);
   const target = heroModel || hero;
   if (target) target.visible = true;
@@ -1466,10 +1769,30 @@ function endFinale() {
 // dev helpers (localhost only, for testing far corners / screen positions)
 if (location.hostname === "localhost") {
   window.__tp = (x, z) => { heroPos.set(x, 0, z); placeHero(); };
-  window.__collectAllStars = () => { for (const s of starDefs) state.starsCollected.add(s.id); starMeshes.forEach((m) => (m.visible = false)); saveProgress(); updateStarHud(); };
+  window.__collectAllStars = () => {
+    for (const s of starDefs) state.starsCollected.add(s.id);
+    starMeshes.forEach((m) => (m.visible = false));
+    saveProgress();
+    updateStarHud();
+    maybeStartFinale();
+    if (!starsGoalHintShown && !finaleActive && getSurfacedCount() < PORTAL_PAGES) {
+      starsGoalHintShown = true;
+      narrate([SECRETS.starsFirst]);
+    }
+  };
   window.__finale = () => runFinale();
   window.__starPos = (i) => starDefs[i];
   window.__heroPos = () => ({ x: heroPos.x, z: heroPos.z });
+  window.__surfacePages = (n) => {
+    for (let i = 0; i < n; i++) state.fragmentsSurfaced.add(`__test${i}`);
+    saveProgress();
+    updateHudCount();
+    maybeStartFinale();
+    if (!pagesGoalHintShown && !finaleActive && getSurfacedCount() >= PORTAL_PAGES && state.starsCollected.size < STAR_COUNT) {
+      pagesGoalHintShown = true;
+      narrate([SECRETS.pagesFirst]);
+    }
+  };
   window.__heroScreen = () => {
     const v = hero.position.clone();
     v.y += 2;
@@ -1496,7 +1819,16 @@ function openStop(stop) {
       playFragmentChime();
       flyFragmentToJournal();
       updateHudCount();
-      maybeStartFinale(); // reading the last page (with all stars) opens the portal
+      maybeStartFinale(); // 28 stars + 28 pages (of the 154) opens the portal
+      if (!pagesGoalHintShown && !finaleActive && getSurfacedCount() >= PORTAL_PAGES && state.starsCollected.size < STAR_COUNT) {
+        pagesGoalHintShown = true;
+        narrate([SECRETS.pagesFirst]);
+      } else if (!portalGoalHintShown && !finaleActive && !finaleDone && getSurfacedCount() >= 3) {
+        // dropped once, a few pages in — the twin-goal reveal, as a passing
+        // remark mid-exploration rather than a four-line lecture at the start
+        portalGoalHintShown = true;
+        narrate(magazine.sutradhar.portalGoal);
+      }
     });
   if (stop.firstOfSection && stop.intro && !shownSections.has(stop.tierId)) {
     shownSections.add(stop.tierId);
@@ -1584,9 +1916,27 @@ function interact() {
     triggerLotus();
     return;
   }
+  // the eye at the dais: press E to OPEN the way once you've gathered 28 stars
+  // and read 28 pages — and to re-open it any time after (the eye remembers)
+  if (!finaleActive && Math.hypot(heroPos.x, heroPos.z) < 11) {
+    const ready = state.portalOpened || (state.starsCollected.size >= STAR_COUNT && getSurfacedCount() >= PORTAL_PAGES);
+    if (ready) { runFinale(); return; }
+    // standing at the eye but not ready yet — say what's still needed (once per approach)
+    if (!daisHintShown && (state.starsCollected.size > 0 || getSurfacedCount() > 0)) {
+      daisHintShown = true;
+      const needS = Math.max(0, STAR_COUNT - state.starsCollected.size);
+      const needP = Math.max(0, PORTAL_PAGES - getSurfacedCount());
+      const parts = [];
+      if (needS) parts.push(`${needS} more ${needS === 1 ? "star" : "stars"}`);
+      if (needP) parts.push(`${needP} more ${needP === 1 ? "page" : "pages"}`);
+      narrate([`The eye still sleeps, seeker. Bring ${parts.join(" and ")}, and the way will open.`]);
+      return;
+    }
+  }
   const s = nearestSlot();
   if (s && s.stop) openStop(s.stop);
 }
+let daisHintShown = false; // reset when you walk away from the dais
 
 function openTheGate() {
   gateOpen = true;
@@ -2045,7 +2395,13 @@ function animate() {
     heroPos.x += (0 - heroPos.x) * (1 - Math.pow(0.9, dt * 60));
     heroPos.z -= 16.8 * dt; // world-units per second, not per frame
     placeHero();
-    if (heroPos.z < 14) { enteringHall = false; if (!arrived) { arrived = true; setTimeout(() => narrate(magazine.sutradhar.arrive), 500); } }
+    if (heroPos.z < 14) {
+      enteringHall = false;
+      if (!arrived) {
+        arrived = true;
+        setTimeout(() => narrate(magazine.sutradhar.arrive), 500);
+      }
+    }
   } else if (!overlay) {
     const run = keys["shift"] ? 1.7 : 1;
     let f = 0, r = 0;
@@ -2188,11 +2544,15 @@ function animate() {
       const el = document.getElementById("hud-stars");
       if (el) { el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
       maybeStartFinale();
+      if (!starsGoalHintShown && !finaleActive && state.starsCollected.size >= STAR_COUNT && getSurfacedCount() < PORTAL_PAGES) {
+        starsGoalHintShown = true;
+        narrate([SECRETS.starsFirst]);
+      }
     }
   }
   // the emblem grows brighter as the seeker uncovers the magazine
   const scProgress = getSurfacedCount() / getTotalFragments();
-  emblemLight.intensity = 6 + scProgress * 9 + Math.sin(t * 2.2) * 0.5;
+  if (!finaleActive) emblemLight.intensity = 6 + scProgress * 9 + Math.sin(t * 2.2) * 0.5;
   // mouth moves while the Sutradhar speaks
   const talk = isSpeaking();
   mouth.scale.y = talk ? 0.35 + Math.abs(Math.sin(t * 18)) * 0.9 : 0.35;
@@ -2201,12 +2561,17 @@ function animate() {
   for (const l of lanterns) {
     l.mesh.material.emissiveIntensity = 1.8 + Math.sin(t * 8 + l.phase) * 0.5 + Math.sin(t * 23 + l.phase) * 0.2;
   }
-  // the crest faces the entrance and breathes; its gold ring turns slowly
-  emblem.rotation.y = Math.sin(t * 0.35) * 0.22; // gentle sway, logo stays readable
-  emblem.position.y = 6.8 + Math.sin(t * 1.1) * 0.22;
-  ring.rotation.z = t * 0.5;
-  emblemGlow.material.opacity = 0.13 + Math.abs(Math.sin(t * 1.3)) * 0.1;
-  emblemGlow.scale.setScalar(1 + Math.sin(t * 1.3) * 0.05);
+  // the crest faces the entrance and breathes; its gold ring turns slowly.
+  // (frozen during the finale — the Waking Eye owns the emblem then.)
+  if (!finaleActive) {
+    emblem.rotation.y = Math.sin(t * 0.35) * 0.22; // gentle sway, logo stays readable
+    emblem.position.y = 6.8 + Math.sin(t * 1.1) * 0.22;
+    ring.rotation.z = t * 0.5;
+    emblemGlow.material.opacity = 0.13 + Math.abs(Math.sin(t * 1.3)) * 0.1;
+    emblemGlow.scale.setScalar(1 + Math.sin(t * 1.3) * 0.05);
+    // once the eye has been awakened, it rests brighter — a subtle 'alive' cue
+    if (state.portalOpened) emblemGlow.material.opacity += 0.06 + Math.sin(t * 1.6) * 0.05;
+  }
 
   // the hall warms as more of it is uncovered (bright amber -> deep sandstone)
   const depth = 1 - getSurfacedCount() / Math.max(1, STOPS.length);
@@ -2316,8 +2681,18 @@ function animate() {
       narrate([SECRETS.legacy]);
     }
     const near = nearestSlot();
+    const distDais = Math.hypot(heroPos.x, heroPos.z);
+    const nearDais = !finaleActive && distDais < 11;
+    if (distDais > 13) daisHintShown = false; // re-arm the spoken hint once you walk away
+    const daisReady = state.portalOpened || (state.starsCollected.size >= STAR_COUNT && getSurfacedCount() >= PORTAL_PAGES);
     if (nearLotus) { prompt.textContent = "✦ a golden lotus waits — press E"; prompt.style.opacity = "1"; }
     else if (nearLegacy) { prompt.textContent = nearLegacy.label; prompt.style.opacity = "1"; }
+    else if (nearDais && daisReady) { prompt.textContent = state.portalOpened ? "✦ the eye remembers — press E to open the way" : "✦ the eye is ready — press E to open the way"; prompt.style.opacity = "1"; }
+    else if (nearDais && (state.starsCollected.size >= STAR_COUNT || getSurfacedCount() >= PORTAL_PAGES)) {
+      const needS = Math.max(0, STAR_COUNT - state.starsCollected.size), needP = Math.max(0, PORTAL_PAGES - getSurfacedCount());
+      prompt.textContent = needS ? `The eye sleeps · ${needS} more ★ to wake it` : `The eye sleeps · ${needP} more pages to wake it`;
+      prompt.style.opacity = "1";
+    }
     else if (near && near.stop) { prompt.textContent = "Press E to open · " + near.stop.page.title; prompt.style.opacity = "1"; }
     else if (near) { prompt.textContent = "A sealed folio — awaiting a future volume"; prompt.style.opacity = "1"; }
     else { prompt.style.opacity = "0"; }

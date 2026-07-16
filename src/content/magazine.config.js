@@ -32,6 +32,12 @@ export const magazine = {
       "Here is the heart of the eye. Every path around it hides a page.",
       "Wander freely, seeker — uncover them all, and the whole will reveal itself.",
     ],
+    // the twin ask, spoken once, right after arrive — so the way beyond is a
+    // known destination, not a secret nobody ever stumbles into
+    portalGoal: [
+      "Two harvests wait in this dark, seeker: light scattered like stars, and pages scattered like leaves.",
+      "Gather twenty-eight of each — no more is asked — and a way past Volume Twenty-Eight will open.",
+    ],
     closingComplete:
       "Every page uncovered, every thread rejoined.\nWhat was scattered now forms one whole. This is Pictoreal.",
     closingIncomplete: "Pages still wait in the dark. Return, and keep seeking.",
@@ -41,6 +47,9 @@ export const magazine = {
       poke: "मुझे नहीं, साधक... पन्नों को छुओ। कथा उनमें बसती है।",
       eye: "जिसे तुम खोज रहे हो, साधक... वह भी तुम्हें देख रही है।",
       lotus: "यह कमल हर किसी को नहीं मिलता, साधक। जो खोज की राह में भटकते नहीं, उन्हीं के लिए यह आख़िरी पन्ना खिलता है।",
+      // spoken once, whichever half of the twin goal you finish first
+      starsFirst: "सारे तारे तुमने बुला लिए, साधक... पर कथा अभी अधूरी है। अट्ठाईस पन्ने पढ़ो — तभी राह खुलेगी।",
+      pagesFirst: "अट्ठाईस पन्ने अब तुमने पढ़ लिए, साधक... पर तारे अब भी अंधकार में छिपे हैं। उन्हें भी खोजो — तभी राह खुलेगी।",
     },
   },
 

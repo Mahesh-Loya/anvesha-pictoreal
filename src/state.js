@@ -4,6 +4,9 @@ export const state = {
   currentTier: null,
   audioMuted: false,
   voiceEnabled: true,
+  // has the seeker opened the Volume 29 portal at least once? once true, the
+  // emblem "remembers" and the portal can be re-summoned from the dais anytime.
+  portalOpened: false,
 };
 
 // Persist the treasure-hunt progress (pages uncovered + stars collected) so the
@@ -14,6 +17,7 @@ export function saveProgress() {
     localStorage.setItem(LS_KEY, JSON.stringify({
       fragments: [...state.fragmentsSurfaced],
       stars: [...state.starsCollected],
+      portalOpened: state.portalOpened,
     }));
   } catch {}
 }
@@ -23,6 +27,7 @@ function loadProgress() {
     if (j) {
       state.fragmentsSurfaced = new Set(j.fragments || []);
       state.starsCollected = new Set(j.stars || []);
+      state.portalOpened = !!j.portalOpened;
     }
   } catch {}
 }
@@ -34,4 +39,5 @@ export function resetState() {
   state.currentTier = null;
   state.audioMuted = false;
   state.voiceEnabled = true;
+  state.portalOpened = false;
 }
