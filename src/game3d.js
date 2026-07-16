@@ -1232,25 +1232,52 @@ function handlePoke() {
 const STAR_COUNT = 28;
 const starDefs = []; // { x, z, id }
 {
+  // a spot only counts if the Sutradhar can actually stand on it (clear of
+  // rock AND clear of decorative props like the hall's colonnade/dais/fingerpost
+  // — those aren't in the walkability graph, so a spot too close to one is
+  // reachable on paper but visually wedged behind a pillar in practice)
+  const reachable = (x, z) => {
+    if (!isWalkable(cave, x, z, 1.1)) return false;
+    for (const o of obstacles) if (Math.hypot(x - o.x, z - o.z) < o.r + 2.2) return false;
+    return true;
+  };
   // spread the stars across the far reaches — every chamber but the hub, then
   // a few along the longest tunnels, so they're scattered and worth seeking
   const spots = [];
   for (const n of cave.nodes) {
     if (n.hub) continue;
-    // a point set a little off the chamber centre (deterministic, no RNG)
-    spots.push({ x: n.x + Math.cos(n.id * 1.7) * (n.r * 0.45), z: n.z + Math.sin(n.id * 1.7) * (n.r * 0.45), d: Math.hypot(n.x, n.z) });
+    // a point set a little off the chamber centre (deterministic, no RNG),
+    // pulling back toward the centre if that offset lands too close to a prop
+    let x = n.x, z = n.z;
+    for (const f of [0.45, 0.3, 0.15, 0]) {
+      const cx = n.x + Math.cos(n.id * 1.7) * (n.r * f), cz = n.z + Math.sin(n.id * 1.7) * (n.r * f);
+      if (reachable(cx, cz)) { x = cx; z = cz; break; }
+    }
+    spots.push({ x, z, d: Math.hypot(n.x, n.z) });
   }
   for (const e of cave.edges) {
     const a = cave.nodes[e.a], b = cave.nodes[e.b];
-    const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2;
-    spots.push({ x: mx, z: mz, d: Math.hypot(mx, mz) });
+    // try the midpoint first, then slide along the tunnel toward either end —
+    // this is what rescues hub-adjacent tunnels whose midpoint sits right in
+    // the hall's pillar ring
+    let picked = null;
+    for (const t of [0.5, 0.35, 0.65, 0.2, 0.8]) {
+      const x = a.x + (b.x - a.x) * t, z = a.z + (b.z - a.z) * t;
+      if (reachable(x, z)) { picked = { x, z }; break; }
+    }
+    if (!picked) continue; // no clear spot along this tunnel — skip it
+    spots.push({ x: picked.x, z: picked.z, d: Math.hypot(picked.x, picked.z) });
   }
   // sort by distance from the hub (farthest first = best hidden), then pick 28
   // evenly across that ordering for a good spread near→far
   spots.sort((p, q) => q.d - p.d);
   const step = Math.max(1, Math.floor(spots.length / STAR_COUNT));
+  const MIN_SEP = 4; // two picks this close would let one walk-in collect both
   for (let i = 0, k = 0; k < STAR_COUNT && i < spots.length; i += step, k++) {
-    starDefs.push({ x: spots[i].x, z: spots[i].z, id: k });
+    let j = i;
+    while (j < spots.length && starDefs.some((s) => Math.hypot(s.x - spots[j].x, s.z - spots[j].z) < MIN_SEP)) j++;
+    if (j >= spots.length) j = i; // fallback: take it anyway rather than come up short
+    starDefs.push({ x: spots[j].x, z: spots[j].z, id: k });
   }
 }
 // star mesh: a glowing gold octahedron with an additive halo sprite
