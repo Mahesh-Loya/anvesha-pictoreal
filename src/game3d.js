@@ -1368,7 +1368,11 @@ let portalGoalHintShown = false; // the one-time "here is what opens the way" re
 let pendingPostRead = false; // a page just surfaced — check the finale/nudges once the reader CLOSES, not while still open
 
 function maybeStartFinale() {
-  if (finaleDone || finaleActive) return;
+  // auto-opens ONCE, the first time both are true. state.portalOpened is
+  // persisted (finaleDone/finaleActive are not — they'd forget across a
+  // refresh and re-fire the portal on the next page close). After the first
+  // time, only the explicit E-press at the dais (see interact()) reopens it.
+  if (finaleDone || finaleActive || state.portalOpened) return;
   if (state.starsCollected.size >= STAR_COUNT && getSurfacedCount() >= PORTAL_PAGES) runFinale();
 }
 
